@@ -1,0 +1,387 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <title>日常任务管理</title>
+  <link rel="shortcut icon" href="css/task_manager.png" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+  </style>
+</head>
+<body>
+  <div id="contents"><!-- 主内容块的开始标签。 -->
+  <!-- 总的来说，有 3 栏数据，一栏是输入新任务和显示未完成任务的地方，一栏是已完成任务，还有一栏是已取消任务。 -->
+  <!-- 每个任务有开始时间、花费时间的属性。 -->
+  <div id="in-progress" style="text-align: center">
+  <h1>日常任务管理工具</h1>
+  <input id="new-task" type="text" placeholder="输入新任务" />
+  <div class="seg-divider">活跃的任务▽</div>
+  </div>
+
+  <div class="seg-divider">完成的任务▽<a class="remove-btn" id="clear-completed-btn" title="移除所有已完成任务"></a></div>
+
+  <div id="completed">
+  </div>
+
+  <div class="seg-divider">挂起的任务▽<a class="remove-btn" id="clear-pending-btn" title="移除所有挂起的任务"></a></div>
+
+  <div id="pending">
+  </div>
+
+  </div><!-- 主内容块的结束标签。 -->
+
+  <div id="footer">
+      <b id="it-count">0 </b>项活动任务
+      <a id="clear-completed" class="hide">清除<b id="ct-count"> 0 </b>项已完成任务</a>
+      <a id="clear-pending" class="hide">清除<b id="cc-count"> 0 </b>项已挂起任务</a>
+  </div>
+</body>
+
+<script>
+(function(){
+
+    function Task(obj){
+        var self = this
+        self.desc = obj.desc
+        self.startTime = obj.startTime || 0  // Invalid value.
+        self.activated = obj.activated || false
+        self.timeCost = obj.timeCost || 0  // In milliseconds.
+        self.sn = obj.sn || 0 // Only work for active tasks.
+
+        self.activate = function(){
+            if(self.activated) return
+            self.startTime = new Date().getTime()
+            self.activated = true
+        }
+
+        self.complete = self.pend = function(){
+            if(!self.activated) return
+            self.timeCost += new Date().getTime() - self.startTime
+            self.startTime = 0
+            self.activated = false
+        }
+
+        self.getTimeCost = function(){
+            return Math.round(self.timeCost / 60000)  // Return time in minutes.
+        }
+    }
+
+    var itt = '<div class="{divClass}">' +
+                '<a class="{iconClass}"></a>' +
+                '<span>{desc}</span>' +
+                '<a class="remove-btn" title="挂起任务"></a>' +
+                '<a class="complete-btn" title="标记已完成任务"></a>' +
+                '<a class="activate-btn" title="任务置顶(激活)"></a>' +
+                '<a class="up-btn">上移</a>' +
+                '<a class="time-cost hide" title="已花费时间(分钟)">0</a></div>'  // In-progress Task Template.
+    var cAptt = '<div class="{divClass}">' +
+                '<a class="colored-icon {iconColor}"></a>' +
+                '<span>{desc}</span>' +
+                '<a class="remove-btn" title="移除任务"></a>' +
+                '<a class="roll-btn" title="恢复活跃"></a>' +
+                '<a class="time-cost hide" title="时间花费(分钟)">0</a></div>'  // Completed & Pending Task Template.
+
+    function createElementWith(template, obj){
+        var container = document.createElement('div')
+        for (const key in obj) {
+          template = template.replace(new RegExp('{' + key + '}', 'g'), '' + obj[key])
+        }
+        container.innerHTML = template
+        return container.firstChild
+    }
+
+    /////// Initialize the globals. ///////
+    var ntv = document.getElementById('new-task')    // New Task View.
+    var itv = document.getElementById('in-progress') // In-progress Tasks View.
+    var ctv = document.getElementById('completed')   // Completed Tasks View.
+    var ptv = document.getElementById('pending')   // Pending Tasks View.
+
+    var itm = []  // In-progress Tasks Model.
+    var ctm = []  // Completed Tasks Model.
+    var ptm = []  // Pending Tasks Model.
+    var store = {inProgress: itm, completed: ctm, pending: ptm}
+    /////// Globals initialized. ///////
+
+    function updateFooter(){
+      let itCount = itm.length
+      let ctCount = ctm.length
+      let ccCount = ptm.length
+
+      document.getElementById('it-count').innerHTML = itCount + ' '
+      document.getElementById('ct-count').innerHTML = ' ' + ctCount + ' '
+      document.getElementById('cc-count').innerHTML = ' ' + ccCount + ' '
+      document.getElementById('clear-completed').className = (ctCount > 0) ? '' : 'hide'
+      document.getElementById('clear-pending').className = (ccCount > 0) ? '' : 'hide'
+    }
+
+    function createIT(task){  // Create In-progress Task.
+        var obj = {desc: task.desc}
+        if(itv.getElementsByClassName('task').length == 0){
+            obj.iconClass = 'colored-icon active'
+            obj.divClass = 'task top'
+            task.activate()
+        }else{
+            obj.iconClass = 'colored-icon yellow'
+            obj.divClass = 'task'
+        }
+        var d = createElementWith(itt, obj)
+        itv.appendChild(d)
+
+        // Bind handler to the buttons.
+        d.getElementsByClassName('remove-btn')[0].onclick = function(){
+            // Pend a task.
+            removeATask(d, itm)
+            createPT(task)
+        }
+        d.getElementsByClassName('complete-btn')[0].onclick = function(){
+            // Complete a task.
+            removeATask(d, itm)
+            createCT(task)
+        }
+        d.getElementsByClassName('activate-btn')[0].onclick = function(){
+            // Activate a task.
+            activateIT(d)
+        }
+        d.getElementsByClassName('up-btn')[0].onclick = function(){
+            // Move a task up one row.
+            upItem(d)
+        }
+
+        showTime(task, d)
+
+        // Synchronize data.
+        itm.push(task)
+        localStorage.tasksInfo = JSON.stringify(store)
+
+        updateFooter()
+        return d
+    }
+
+    const upItem = (item) => { // Only work for in-progress tasks
+      const prevItem = prevSibling(item)
+      const isSecond = prevItem.className.includes('top')
+      if (isSecond) {
+        return
+      }
+      const content = prevItem.getElementsByTagName('span')[0].innerHTML
+      const task = removeATask(item, itm)
+      itv.insertBefore(item, prevItem)
+      insertByDesc(itm, content, task)
+      localStorage.tasksInfo = JSON.stringify(store)
+    }
+
+    function activateIT(view){
+
+        // De-activate the current active task.
+        var top = itv.getElementsByClassName('top')[0]
+        top.getElementsByClassName('active')[0].className = 'colored-icon yellow'
+        top.className = 'task'
+        var task = itm[0]
+        task.pend()
+        showTime(task, top)
+
+        // Activate the selected task.
+        task = removeATask(view, itm)  // Temporarily remove the selected task.
+        var locator = itv.getElementsByClassName('seg-divider')[0].nextSibling
+        if(locator != null){  // Move current task to the head of the list.
+            itv.insertBefore(view, locator)
+        }else{
+            itv.appendChild(view)
+        }
+        // Mark current task as active.
+        view.getElementsByClassName('colored-icon')[0].className = 'colored-icon active'
+        view.className = 'task top'
+
+        // Synchronize the storage.
+        itm.splice(0, 0, task)
+        task.activate()
+        localStorage.tasksInfo = JSON.stringify(store)
+
+        updateFooter()
+    }
+
+    const prevSibling = view => {
+      const { previousSibling } = view
+      return (previousSibling instanceof Text) ? previousSibling.previousSibling : previousSibling
+    }
+
+    const nextSibling = view => {
+      const { nextSibling } = view
+      return (nextSibling instanceof Text) ? nextSibling.nextSibling : nextSibling
+    }
+
+    const getByDesc = (arr, desc) => {
+      for (const t of arr) {
+        if (desc === t.desc) {
+          return t
+        }
+      }
+      return undefined
+    }
+
+    const removeByDesc = (arr, desc) => {
+      let index = 0
+      for (const t of arr) {
+        if (desc === t.desc) {
+          return arr.splice(index, 1)[0]
+        }
+        ++index
+      }
+      return undefined
+    }
+
+    const insertByDesc = (arr, desc, toInsert) => {
+      let index = 0
+      for (const t of arr) {
+        if (desc === t.desc) {
+          arr.splice(index, 0, toInsert)
+          return toInsert
+        }
+        ++index
+      }
+      return undefined
+    }
+
+    function removeATask(view, type){  // Remove In-progress Task.
+        // Remove the task view from the page.
+        var c = view.parentNode
+        var nextTask = nextSibling(view)
+        if(view.className == 'task top' && nextTask != null && nextTask.className == 'task'){
+            nextTask.className = 'task top'
+            if(type == itm){
+                nextTask.getElementsByClassName('colored-icon')[0].className = 'colored-icon active'
+                getByDesc(itm, nextTask.getElementsByTagName('span')[0].innerHTML).activate()
+            }
+        }
+        c.removeChild(view)
+
+        // Remove it from the localStorage.
+        var taskDesc = view.getElementsByTagName('span')[0].innerHTML
+        var task = removeByDesc(type, taskDesc)
+        task.complete()
+        localStorage.tasksInfo = JSON.stringify(store)
+
+        updateFooter()
+        return task
+    }
+
+    function createCT(task){  // Create Completed Task.
+        task.complete()
+
+        var obj = {desc: task.desc, iconColor:'green'}
+        if(ctv.getElementsByClassName('task').length == 0){
+            obj.divClass = 'task top'
+        }else{
+            obj.divClass = 'task'
+        }
+        var d = createElementWith(cAptt, obj)
+        ctv.appendChild(d)
+
+        // Bind handler to the remove button.
+        d.getElementsByClassName('remove-btn')[0].onclick = function(){
+            removeATask(d, ctm)
+        }
+        d.getElementsByClassName('roll-btn')[0].onclick = function(){
+            removeATask(d, ctm)
+            createIT(task)
+        }
+
+        showTime(task, d)
+
+        // Synchronize data.
+        ctm.push(task)  // Perhaps 0-100 means progress? Or an object.
+        localStorage.tasksInfo = JSON.stringify(store)
+
+        updateFooter()
+        return d
+    }
+
+    function createPT(task){  // Create Pending Task.
+        task.pend()
+
+        var obj = {desc:task.desc, iconColor:'gray'}
+        if(ptv.getElementsByClassName('task').length == 0){
+            obj.divClass = 'task top'
+        }else{
+            obj.divClass = 'task'
+        }
+        var d = createElementWith(cAptt, obj)
+        ptv.appendChild(d)
+        // Bind handler to the remove button.
+        d.getElementsByClassName('remove-btn')[0].onclick = function(){
+            removeATask(d, ptm)
+        }
+        d.getElementsByClassName('roll-btn')[0].onclick = function(){
+            removeATask(d, ptm)
+            createIT(task)
+        }
+
+        showTime(task, d)
+
+        // Synchronize data.
+        ptm.push(task)  // Perhaps 0-100 means progress? Or an object.
+        localStorage.tasksInfo = JSON.stringify(store)
+
+        updateFooter()
+        return d
+    }
+
+    function showTime(task, view){
+        if(task.getTimeCost() > 0){
+            var a = view.getElementsByClassName('time-cost')[0]
+            a.className = 'time-cost'
+            a.innerHTML = task.getTimeCost()
+        }
+    }
+
+    ntv.onkeydown = function(event){
+      if(event.keyCode === 13 && ntv.value){
+        createIT(new Task({desc: ntv.value}))
+        ntv.value = ''
+      }
+    }
+
+    document.getElementById('clear-completed-btn').onclick =
+    document.getElementById('clear-completed').onclick = function(){
+        var tasks = ctv.getElementsByClassName('task')
+        while(tasks[0] != undefined){
+            removeATask(tasks[0], ctm)
+        }
+    }
+
+    document.getElementById('clear-pending-btn').onclick =
+    document.getElementById('clear-pending').onclick = function(){
+        var tasks = ptv.getElementsByClassName('task')
+        while(tasks[0] != undefined){
+            removeATask(tasks[0], ptm)
+        }
+    }
+
+    const data = localStorage.tasksInfo
+    if(data == undefined) return
+    // Init the tasks.
+    const { inProgress, completed, pending } = JSON.parse(data)
+    const toSort = []
+    for (let key in inProgress) {
+      const t = new Task(inProgress[key])
+
+      toSort.push(t)
+      let i = inProgress[key]
+      if(i == undefined) return
+      i = new Task(i)
+      if(i.activated){
+          activateIT(createIT(i))
+      }else{
+          createIT(i)
+      }
+    }
+    for (let key in completed) {
+        if(completed[key] == undefined) return
+        createCT(new Task(completed[key]))
+    }
+    for (let key in pending) {
+        if(pending[value] == undefined) return
+        createPT(new Task(pending[value]))
+    }
+})()
+</script>
+</html>
