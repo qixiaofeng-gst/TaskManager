@@ -379,8 +379,8 @@
         createCT(new Task(completed[key]))
     }
     for (let key in pending) {
-        if(pending[value] == undefined) return
-        createPT(new Task(pending[value]))
+        if(pending[key] == undefined) return
+        createPT(new Task(pending[key]))
     }
 })()
 </script>
