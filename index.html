@@ -38,6 +38,12 @@
 
 <script>
 (function(){
+  console.log(
+    '%c>>>> %cLog indicate %cdeveloping.',
+    'color: #353535; font-weight: 700;',
+    'color: deepskyblue;',
+    'color: darkgreen;'
+  )
 
   /*const notifi = new Notification('hehe', {
     body: 'damn',
@@ -47,32 +53,42 @@
   })*/
 
   function Task(obj){
-      var self = this
-      self.desc = obj.desc
-      self.startTime = obj.startTime || 0  // Invalid value.
-      self.activated = obj.activated || false
-      self.timeCost = obj.timeCost || 0  // In milliseconds.
-      self.sn = obj.sn || 0 // Only work for active tasks.
-
-      self.activate = function(){
-          if(self.activated) return
-          self.startTime = new Date().getTime()
-          self.activated = true
+    const self = this
+    self.desc = obj.desc
+    self.startTime = obj.startTime || 0  // Invalid value.
+    self.activated = obj.activated || false
+    self.timeCost = obj.timeCost || 0  // In milliseconds.
+    self.sn = obj.sn || 0 // Only work for active tasks.
+    self.h_displaying = false
+    
+    const clear_displaying = () => {
+      if (false === self.h_displaying) {
+        return
       }
+      clearInterval(self.h_displaying)
+      self.h_displaying = false
+    }
 
-      self.complete = self.pend = function(){
-          if(!self.activated) return
-          self.timeCost += new Date().getTime() - self.startTime
-          self.startTime = 0
-          self.activated = false
-      }
+    self.activate = function(){
+        if(self.activated) return
+        self.startTime = Date.now()
+        self.activated = true
+    }
 
-      self.getTimeCost = function(){
-          return Math.round(self.timeCost / 60000)  // Return time in minutes.
-      }
+    self.complete = self.pend = function(){
+      if(!self.activated) return
+      self.timeCost += Date.now() - self.startTime
+      self.startTime = 0
+      self.activated = false
+      clear_displaying()
+    }
+
+    self.getTimeCost = function(){
+      return Math.round(self.timeCost / 60000)  // Return time in minutes.
+    }
   }
 
-  var itt = '<div class="{divClass}">' +
+  const itt = '<div class="{divClass}">' +
               '<a class="{iconClass}"></a>' +
               '<span>{desc}</span>' +
               '<a class="remove-btn" title="挂起任务"></a>' +
@@ -80,7 +96,7 @@
               '<a class="activate-btn" title="任务置顶(激活)"></a>' +
               '<a class="up-btn">上移</a>' +
               '<a class="time-cost hide" title="已花费时间(分钟)">0</a></div>'  // In-progress Task Template.
-  var cAptt = '<div class="{divClass}">' +
+  const cAptt = '<div class="{divClass}">' +
               '<a class="colored-icon {iconColor}"></a>' +
               '<span>{desc}</span>' +
               '<a class="remove-btn" title="移除任务"></a>' +
@@ -88,7 +104,7 @@
               '<a class="time-cost hide" title="时间花费(分钟)">0</a></div>'  // Completed & Pending Task Template.
 
   function createElementWith(template, obj){
-      var container = document.createElement('div')
+      const container = document.createElement('div')
       for (const key in obj) {
         template = template.replace(new RegExp('{' + key + '}', 'g'), '' + obj[key])
       }
@@ -97,15 +113,15 @@
   }
 
   /////// Initialize the globals. ///////
-  var ntv = document.getElementById('new-task')    // New Task View.
-  var itv = document.getElementById('in-progress') // In-progress Tasks View.
-  var ctv = document.getElementById('completed')   // Completed Tasks View.
-  var ptv = document.getElementById('pending')   // Pending Tasks View.
+  const ntv = document.getElementById('new-task')    // New Task View.
+  const itv = document.getElementById('in-progress') // In-progress Tasks View.
+  const ctv = document.getElementById('completed')   // Completed Tasks View.
+  const ptv = document.getElementById('pending')   // Pending Tasks View.
 
-  var itm = []  // In-progress Tasks Model.
-  var ctm = []  // Completed Tasks Model.
-  var ptm = []  // Pending Tasks Model.
-  var store = {inProgress: itm, completed: ctm, pending: ptm}
+  const itm = []  // In-progress Tasks Model.
+  const ctm = []  // Completed Tasks Model.
+  const ptm = []  // Pending Tasks Model.
+  const store = {inProgress: itm, completed: ctm, pending: ptm}
   /////// Globals initialized. ///////
 
   function updateFooter(){
@@ -121,7 +137,7 @@
   }
 
   function createIT(task){  // Create In-progress Task.
-      var obj = {desc: task.desc}
+      const obj = {desc: task.desc}
       if(itv.getElementsByClassName('task').length == 0){
           obj.iconClass = 'colored-icon active'
           obj.divClass = 'task top'
@@ -130,7 +146,7 @@
           obj.iconClass = 'colored-icon yellow'
           obj.divClass = 'task'
       }
-      var d = createElementWith(itt, obj)
+      const d = createElementWith(itt, obj)
       itv.appendChild(d)
 
       // Bind handler to the buttons.
@@ -179,16 +195,16 @@
   function activateIT(view){
 
       // De-activate the current active task.
-      var top = itv.getElementsByClassName('top')[0]
+      const top = itv.getElementsByClassName('top')[0]
       top.getElementsByClassName('active')[0].className = 'colored-icon yellow'
       top.className = 'task'
-      var task = itm[0]
+      let task = itm[0]
       task.pend()
       showTime(task, top)
 
       // Activate the selected task.
       task = removeATask(view, itm)  // Temporarily remove the selected task.
-      var locator = itv.getElementsByClassName('seg-divider')[0].nextSibling
+      const locator = itv.getElementsByClassName('seg-divider')[0].nextSibling
       if(locator != null){  // Move current task to the head of the list.
           itv.insertBefore(view, locator)
       }else{
@@ -250,8 +266,8 @@
 
   function removeATask(view, type){  // Remove In-progress Task.
       // Remove the task view from the page.
-      var c = view.parentNode
-      var nextTask = nextSibling(view)
+      const c = view.parentNode
+      const nextTask = nextSibling(view)
       if(view.className == 'task top' && nextTask != null && nextTask.className == 'task'){
           nextTask.className = 'task top'
           if(type == itm){
@@ -262,8 +278,8 @@
       c.removeChild(view)
 
       // Remove it from the localStorage.
-      var taskDesc = view.getElementsByTagName('span')[0].innerHTML
-      var task = removeByDesc(type, taskDesc)
+      const taskDesc = view.getElementsByTagName('span')[0].innerHTML
+      const task = removeByDesc(type, taskDesc)
       task.complete()
       localStorage.tasksInfo = JSON.stringify(store)
 
@@ -274,13 +290,13 @@
   function createCT(task){  // Create Completed Task.
       task.complete()
 
-      var obj = {desc: task.desc, iconColor:'green'}
+      const obj = {desc: task.desc, iconColor:'green'}
       if(ctv.getElementsByClassName('task').length == 0){
           obj.divClass = 'task top'
       }else{
           obj.divClass = 'task'
       }
-      var d = createElementWith(cAptt, obj)
+      const d = createElementWith(cAptt, obj)
       ctv.appendChild(d)
 
       // Bind handler to the remove button.
@@ -305,13 +321,13 @@
   function createPT(task){  // Create Pending Task.
       task.pend()
 
-      var obj = {desc:task.desc, iconColor:'gray'}
+      const obj = {desc:task.desc, iconColor:'gray'}
       if(ptv.getElementsByClassName('task').length == 0){
           obj.divClass = 'task top'
       }else{
           obj.divClass = 'task'
       }
-      var d = createElementWith(cAptt, obj)
+      const d = createElementWith(cAptt, obj)
       ptv.appendChild(d)
       // Bind handler to the remove button.
       d.getElementsByClassName('remove-btn')[0].onclick = function(){
@@ -334,7 +350,7 @@
 
   function showTime(task, view){
       if(task.getTimeCost() > 0){
-          var a = view.getElementsByClassName('time-cost')[0]
+          const a = view.getElementsByClassName('time-cost')[0]
           a.className = 'time-cost'
           a.innerHTML = task.getTimeCost()
       }
@@ -349,7 +365,7 @@
 
   document.getElementById('clear-completed-btn').onclick =
   document.getElementById('clear-completed').onclick = function(){
-      var tasks = ctv.getElementsByClassName('task')
+      const tasks = ctv.getElementsByClassName('task')
       while(tasks[0] != undefined){
           removeATask(tasks[0], ctm)
       }
@@ -357,7 +373,7 @@
 
   document.getElementById('clear-pending-btn').onclick =
   document.getElementById('clear-pending').onclick = function(){
-      var tasks = ptv.getElementsByClassName('task')
+      const tasks = ptv.getElementsByClassName('task')
       while(tasks[0] != undefined){
           removeATask(tasks[0], ptm)
       }
