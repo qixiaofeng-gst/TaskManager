@@ -59,20 +59,26 @@
     self.activated = obj.activated || false
     self.timeCost = obj.timeCost || 0  // In milliseconds.
     self.sn = obj.sn || 0 // Only work for active tasks.
-    self.h_displaying = false
+    let h_displaying = false
     
     const clear_displaying = () => {
-      if (false === self.h_displaying) {
+      if (false === h_displaying) {
         return
       }
-      clearInterval(self.h_displaying)
-      self.h_displaying = false
+      clearInterval(h_displaying)
+      h_displaying = false
     }
 
-    self.activate = function(){
-        if(self.activated) return
-        self.startTime = Date.now()
-        self.activated = true
+    self.activate = view => {
+      if(self.activated) return
+      self.startTime = Date.now()
+      self.activated = true
+      h_displaying = setInterval(() => {
+        const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
+        const display = view.getElementsByClassName('time-cost')[0]
+        display.className = 'time-cost'
+        display.innerHTML = `${Math.round(time_cost)}`
+      }, 10000)
     }
 
     self.complete = self.pend = function(){
@@ -137,46 +143,48 @@
   }
 
   function createIT(task){  // Create In-progress Task.
-      const obj = {desc: task.desc}
-      if(itv.getElementsByClassName('task').length == 0){
-          obj.iconClass = 'colored-icon active'
-          obj.divClass = 'task top'
-          task.activate()
-      }else{
-          obj.iconClass = 'colored-icon yellow'
-          obj.divClass = 'task'
-      }
-      const d = createElementWith(itt, obj)
-      itv.appendChild(d)
+    const obj = {desc: task.desc}
+    if(itv.getElementsByClassName('task').length == 0){
+      obj.iconClass = 'colored-icon active'
+      obj.divClass = 'task top'
+    }else{
+      obj.iconClass = 'colored-icon yellow'
+      obj.divClass = 'task'
+    }
+    const d = createElementWith(itt, obj)
+    if (obj.divClass === 'task top') {
+      task.activate(d)
+    }
+    itv.appendChild(d)
 
-      // Bind handler to the buttons.
-      d.getElementsByClassName('remove-btn')[0].onclick = function(){
-          // Pend a task.
-          removeATask(d, itm)
-          createPT(task)
-      }
-      d.getElementsByClassName('complete-btn')[0].onclick = function(){
-          // Complete a task.
-          removeATask(d, itm)
-          createCT(task)
-      }
-      d.getElementsByClassName('activate-btn')[0].onclick = function(){
-          // Activate a task.
-          activateIT(d)
-      }
-      d.getElementsByClassName('up-btn')[0].onclick = function(){
-          // Move a task up one row.
-          upItem(d)
-      }
+    // Bind handler to the buttons.
+    d.getElementsByClassName('remove-btn')[0].onclick = function(){
+      // Pend a task.
+      removeATask(d, itm)
+      createPT(task)
+    }
+    d.getElementsByClassName('complete-btn')[0].onclick = function(){
+      // Complete a task.
+      removeATask(d, itm)
+      createCT(task)
+    }
+    d.getElementsByClassName('activate-btn')[0].onclick = function(){
+      // Activate a task.
+      activateIT(d)
+    }
+    d.getElementsByClassName('up-btn')[0].onclick = function(){
+      // Move a task up one row.
+      upItem(d)
+    }
 
-      showTime(task, d)
+    showTime(task, d)
 
-      // Synchronize data.
-      itm.push(task)
-      localStorage.tasksInfo = JSON.stringify(store)
+    // Synchronize data.
+    itm.push(task)
+    localStorage.tasksInfo = JSON.stringify(store)
 
-      updateFooter()
-      return d
+    updateFooter()
+    return d
   }
 
   const upItem = (item) => { // Only work for in-progress tasks
@@ -216,7 +224,7 @@
 
       // Synchronize the storage.
       itm.splice(0, 0, task)
-      task.activate()
+      task.activate(view)
       localStorage.tasksInfo = JSON.stringify(store)
 
       updateFooter()
@@ -272,7 +280,7 @@
           nextTask.className = 'task top'
           if(type == itm){
               nextTask.getElementsByClassName('colored-icon')[0].className = 'colored-icon active'
-              getByDesc(itm, nextTask.getElementsByTagName('span')[0].innerHTML).activate()
+              getByDesc(itm, nextTask.getElementsByTagName('span')[0].innerHTML).activate(nextTask)
           }
       }
       c.removeChild(view)
