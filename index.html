@@ -4,8 +4,26 @@
   <title>日常任务管理</title>
   <link rel="shortcut icon" href="css/task_manager.png" />
   <link rel="stylesheet" href="css/style.css" />
-  <style>
-  </style>
+  <script id='in-progress-task' type='text/template'>
+    <div class="{divClass}">
+      <a class="{iconClass}"></a>
+      <span>{desc}</span>
+      <a class="remove-btn" title="挂起任务"></a>
+      <a class="complete-btn" title="标记已完成任务"></a>
+      <a class="activate-btn" title="任务置顶(激活)"></a>
+      <a class="up-btn">上移</a>
+      <a class="time-cost hide" title="已花费时间(分钟)">0</a>
+    </div>
+  </script>
+  <script id='inactive-task' type='text/template'>
+    <div class="{divClass}">
+      <a class="colored-icon {iconColor}"></a>
+      <span>{desc}</span>
+      <a class="remove-btn" title="移除任务"></a>
+      <a class="roll-btn" title="恢复活跃"></a>
+      <a class="time-cost hide" title="时间花费(分钟)">0</a>
+    </div>
+  </script>
 </head>
 <body>
   <div id="contents"><!-- 主内容块的开始标签。 -->
@@ -37,12 +55,17 @@
 </body>
 
 <script>
-(function(){
+(() => {
   console.log(
     '%c>>>> %cLog indicate %cdeveloping.',
     'color: #353535; font-weight: 700;',
     'color: deepskyblue;',
     'color: darkgreen;'
+  )
+  
+  const s = (selector, context) => (
+    context = context || document,
+    context.querySelector(selector)
   )
 
   /*const notifi = new Notification('hehe', {
@@ -59,6 +82,7 @@
     self.activated = obj.activated || false
     self.timeCost = obj.timeCost || 0  // In milliseconds.
     self.sn = obj.sn || 0 // Only work for active tasks.
+    
     let h_displaying = false
     
     const clear_displaying = () => {
@@ -75,13 +99,13 @@
       self.activated = true
       h_displaying = setInterval(() => {
         const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
-        const display = view.getElementsByClassName('time-cost')[0]
+        const display = s('.time-cost', view)
         display.className = 'time-cost'
         display.innerHTML = `${Math.round(time_cost)}`
       }, 10000)
     }
 
-    self.complete = self.pend = function(){
+    self.complete = self.pend = () => {
       if(!self.activated) return
       self.timeCost += Date.now() - self.startTime
       self.startTime = 0
@@ -89,40 +113,31 @@
       clear_displaying()
     }
 
-    self.getTimeCost = function(){
+    self.getTimeCost = () => {
       return Math.round(self.timeCost / 60000)  // Return time in minutes.
     }
   }
 
-  const itt = '<div class="{divClass}">' +
-              '<a class="{iconClass}"></a>' +
-              '<span>{desc}</span>' +
-              '<a class="remove-btn" title="挂起任务"></a>' +
-              '<a class="complete-btn" title="标记已完成任务"></a>' +
-              '<a class="activate-btn" title="任务置顶(激活)"></a>' +
-              '<a class="up-btn">上移</a>' +
-              '<a class="time-cost hide" title="已花费时间(分钟)">0</a></div>'  // In-progress Task Template.
-  const cAptt = '<div class="{divClass}">' +
-              '<a class="colored-icon {iconColor}"></a>' +
-              '<span>{desc}</span>' +
-              '<a class="remove-btn" title="移除任务"></a>' +
-              '<a class="roll-btn" title="恢复活跃"></a>' +
-              '<a class="time-cost hide" title="时间花费(分钟)">0</a></div>'  // Completed & Pending Task Template.
-
-  function createElementWith(template, obj){
-      const container = document.createElement('div')
-      for (const key in obj) {
-        template = template.replace(new RegExp('{' + key + '}', 'g'), '' + obj[key])
-      }
-      container.innerHTML = template
-      return container.firstChild
+  const itt = s('#in-progress-task').innerHTML
+  const cAptt = s('#inactive-task').innerHTML
+  
+  const e_from = (template, model) => {
+    const container = document.createElement('div')
+    for (const key in model) {
+      template = template.replace(
+        new RegExp('{' + key + '}', 'g'),
+        '' + model[key]
+      )
+    }
+    container.innerHTML = template
+    return container.querySelector('div')
   }
 
   /////// Initialize the globals. ///////
-  const ntv = document.getElementById('new-task')    // New Task View.
-  const itv = document.getElementById('in-progress') // In-progress Tasks View.
-  const ctv = document.getElementById('completed')   // Completed Tasks View.
-  const ptv = document.getElementById('pending')   // Pending Tasks View.
+  const ntv = s('#new-task')    // New Task View.
+  const itv = s('#in-progress') // In-progress Tasks View.
+  const ctv = s('#completed')   // Completed Tasks View.
+  const ptv = s('#pending')   // Pending Tasks View.
 
   const itm = []  // In-progress Tasks Model.
   const ctm = []  // Completed Tasks Model.
@@ -130,117 +145,116 @@
   const store = {inProgress: itm, completed: ctm, pending: ptm}
   /////// Globals initialized. ///////
 
-  function updateFooter(){
+  const update_footer = () => {
     let itCount = itm.length
     let ctCount = ctm.length
     let ccCount = ptm.length
 
-    document.getElementById('it-count').innerHTML = itCount + ' '
-    document.getElementById('ct-count').innerHTML = ' ' + ctCount + ' '
-    document.getElementById('cc-count').innerHTML = ' ' + ccCount + ' '
-    document.getElementById('clear-completed').className = (ctCount > 0) ? '' : 'hide'
-    document.getElementById('clear-pending').className = (ccCount > 0) ? '' : 'hide'
+    s('#it-count').innerHTML = itCount + ' '
+    s('#ct-count').innerHTML = ' ' + ctCount + ' '
+    s('#cc-count').innerHTML = ' ' + ccCount + ' '
+    s('#clear-completed').className = (ctCount > 0) ? '' : 'hide'
+    s('#clear-pending').className = (ccCount > 0) ? '' : 'hide'
   }
 
-  function createIT(task){  // Create In-progress Task.
+  const create_wip_task = task => {  // Create In-progress Task.
     const obj = {desc: task.desc}
-    if(itv.getElementsByClassName('task').length == 0){
+    if(null === s('.task', itv)){
       obj.iconClass = 'colored-icon active'
       obj.divClass = 'task top'
     }else{
       obj.iconClass = 'colored-icon yellow'
       obj.divClass = 'task'
     }
-    const d = createElementWith(itt, obj)
+    const d = e_from(itt, obj)
     if (obj.divClass === 'task top') {
       task.activate(d)
     }
     itv.appendChild(d)
 
     // Bind handler to the buttons.
-    d.getElementsByClassName('remove-btn')[0].onclick = function(){
+    s('.remove-btn', d).onclick = () => {
       // Pend a task.
-      removeATask(d, itm)
-      createPT(task)
+      remove_a_task(d, itm)
+      create_pending_task(task)
     }
-    d.getElementsByClassName('complete-btn')[0].onclick = function(){
+    s('.complete-btn', d).onclick = () => {
       // Complete a task.
-      removeATask(d, itm)
-      createCT(task)
+      remove_a_task(d, itm)
+      create_done_task(task)
     }
-    d.getElementsByClassName('activate-btn')[0].onclick = function(){
+    s('.activate-btn', d).onclick = () => {
       // Activate a task.
-      activateIT(d)
+      activate_wip_task(d)
     }
-    d.getElementsByClassName('up-btn')[0].onclick = function(){
+    s('.up-btn', d).onclick = () => {
       // Move a task up one row.
-      upItem(d)
+      move_item_up(d)
     }
 
-    showTime(task, d)
+    show_time(task, d)
 
     // Synchronize data.
     itm.push(task)
     localStorage.tasksInfo = JSON.stringify(store)
 
-    updateFooter()
+    update_footer()
     return d
   }
 
-  const upItem = (item) => { // Only work for in-progress tasks
-    const prevItem = prevSibling(item)
+  const move_item_up = item => { // Only work for in-progress tasks
+    const prevItem = get_prev_sibling(item)
     const isSecond = prevItem.className.includes('top')
     if (isSecond) {
       return
     }
     const content = prevItem.getElementsByTagName('span')[0].innerHTML
-    const task = removeATask(item, itm)
+    const task = remove_a_task(item, itm)
     itv.insertBefore(item, prevItem)
-    insertByDesc(itm, content, task)
+    insert_by_desc(itm, content, task)
     localStorage.tasksInfo = JSON.stringify(store)
   }
 
-  function activateIT(view){
+  const activate_wip_task = view => {
+    // De-activate the current active task.
+    const top = s('.top', itv)
+    s('.active', top).className = 'colored-icon yellow'
+    top.className = 'task'
+    let task = itm[0]
+    task.pend()
+    show_time(task, top)
 
-      // De-activate the current active task.
-      const top = itv.getElementsByClassName('top')[0]
-      top.getElementsByClassName('active')[0].className = 'colored-icon yellow'
-      top.className = 'task'
-      let task = itm[0]
-      task.pend()
-      showTime(task, top)
+    // Activate the selected task.
+    task = remove_a_task(view, itm)  // Temporarily remove the selected task.
+    const locator = s('.seg-divider', itv).nextSibling
+    if(locator != null){  // Move current task to the head of the list.
+      itv.insertBefore(view, locator)
+    }else{
+      itv.appendChild(view)
+    }
+    // Mark current task as active.
+    s('.colored-icon', view).className = 'colored-icon active'
+    view.className = 'task top'
 
-      // Activate the selected task.
-      task = removeATask(view, itm)  // Temporarily remove the selected task.
-      const locator = itv.getElementsByClassName('seg-divider')[0].nextSibling
-      if(locator != null){  // Move current task to the head of the list.
-          itv.insertBefore(view, locator)
-      }else{
-          itv.appendChild(view)
-      }
-      // Mark current task as active.
-      view.getElementsByClassName('colored-icon')[0].className = 'colored-icon active'
-      view.className = 'task top'
+    // Synchronize the storage.
+    itm.splice(0, 0, task)
+    task.activate(view)
+    localStorage.tasksInfo = JSON.stringify(store)
 
-      // Synchronize the storage.
-      itm.splice(0, 0, task)
-      task.activate(view)
-      localStorage.tasksInfo = JSON.stringify(store)
-
-      updateFooter()
+    update_footer()
   }
 
-  const prevSibling = view => {
+  const get_prev_sibling = view => {
     const { previousSibling } = view
     return (previousSibling instanceof Text) ? previousSibling.previousSibling : previousSibling
   }
 
-  const nextSibling = view => {
+  const get_next_sibling = view => {
     const { nextSibling } = view
     return (nextSibling instanceof Text) ? nextSibling.nextSibling : nextSibling
   }
 
-  const getByDesc = (arr, desc) => {
+  const get_by_desc = (arr, desc) => {
     for (const t of arr) {
       if (desc === t.desc) {
         return t
@@ -249,7 +263,7 @@
     return undefined
   }
 
-  const removeByDesc = (arr, desc) => {
+  const remove_by_desc = (arr, desc) => {
     let index = 0
     for (const t of arr) {
       if (desc === t.desc) {
@@ -260,7 +274,7 @@
     return undefined
   }
 
-  const insertByDesc = (arr, desc, toInsert) => {
+  const insert_by_desc = (arr, desc, toInsert) => {
     let index = 0
     for (const t of arr) {
       if (desc === t.desc) {
@@ -272,119 +286,119 @@
     return undefined
   }
 
-  function removeATask(view, type){  // Remove In-progress Task.
-      // Remove the task view from the page.
-      const c = view.parentNode
-      const nextTask = nextSibling(view)
-      if(view.className == 'task top' && nextTask != null && nextTask.className == 'task'){
-          nextTask.className = 'task top'
-          if(type == itm){
-              nextTask.getElementsByClassName('colored-icon')[0].className = 'colored-icon active'
-              getByDesc(itm, nextTask.getElementsByTagName('span')[0].innerHTML).activate(nextTask)
-          }
+  const remove_a_task = (view, type) => {  // Remove In-progress Task.
+    // Remove the task view from the page.
+    const c = view.parentNode
+    const nextTask = get_next_sibling(view)
+    if(view.className == 'task top' && nextTask != null && nextTask.className == 'task'){
+      nextTask.className = 'task top'
+      if(type == itm){
+        s('.colored-icon', nextTask).className = 'colored-icon active'
+        get_by_desc(itm, s('span', nextTask).innerHTML).activate(nextTask)
       }
-      c.removeChild(view)
+    }
+    c.removeChild(view)
 
-      // Remove it from the localStorage.
-      const taskDesc = view.getElementsByTagName('span')[0].innerHTML
-      const task = removeByDesc(type, taskDesc)
-      task.complete()
-      localStorage.tasksInfo = JSON.stringify(store)
+    // Remove it from the localStorage.
+    const taskDesc = view.getElementsByTagName('span')[0].innerHTML
+    const task = remove_by_desc(type, taskDesc)
+    task.complete()
+    localStorage.tasksInfo = JSON.stringify(store)
 
-      updateFooter()
-      return task
+    update_footer()
+    return task
   }
 
-  function createCT(task){  // Create Completed Task.
-      task.complete()
+  const create_done_task = task => {  // Create Completed Task.
+    task.complete()
 
-      const obj = {desc: task.desc, iconColor:'green'}
-      if(ctv.getElementsByClassName('task').length == 0){
-          obj.divClass = 'task top'
-      }else{
-          obj.divClass = 'task'
-      }
-      const d = createElementWith(cAptt, obj)
-      ctv.appendChild(d)
+    const obj = {desc: task.desc, iconColor:'green'}
+    if(null === s('.task', ctv)){
+      obj.divClass = 'task top'
+    }else{
+      obj.divClass = 'task'
+    }
+    const d = e_from(cAptt, obj)
+    ctv.appendChild(d)
 
-      // Bind handler to the remove button.
-      d.getElementsByClassName('remove-btn')[0].onclick = function(){
-          removeATask(d, ctm)
-      }
-      d.getElementsByClassName('roll-btn')[0].onclick = function(){
-          removeATask(d, ctm)
-          createIT(task)
-      }
+    // Bind handler to the remove button.
+    s('.remove-btn', d).onclick = () => {
+      remove_a_task(d, ctm)
+    }
+    s('.roll-btn', d).onclick = () => {
+      remove_a_task(d, ctm)
+      create_wip_task(task)
+    }
 
-      showTime(task, d)
+    show_time(task, d)
 
-      // Synchronize data.
-      ctm.push(task)  // Perhaps 0-100 means progress? Or an object.
-      localStorage.tasksInfo = JSON.stringify(store)
+    // Synchronize data.
+    ctm.push(task)  // Perhaps 0-100 means progress? Or an object.
+    localStorage.tasksInfo = JSON.stringify(store)
 
-      updateFooter()
-      return d
+    update_footer()
+    return d
   }
 
-  function createPT(task){  // Create Pending Task.
-      task.pend()
+  const create_pending_task = task => {  // Create Pending Task.
+    task.pend()
 
-      const obj = {desc:task.desc, iconColor:'gray'}
-      if(ptv.getElementsByClassName('task').length == 0){
-          obj.divClass = 'task top'
-      }else{
-          obj.divClass = 'task'
-      }
-      const d = createElementWith(cAptt, obj)
-      ptv.appendChild(d)
-      // Bind handler to the remove button.
-      d.getElementsByClassName('remove-btn')[0].onclick = function(){
-          removeATask(d, ptm)
-      }
-      d.getElementsByClassName('roll-btn')[0].onclick = function(){
-          removeATask(d, ptm)
-          createIT(task)
-      }
+    const obj = {desc:task.desc, iconColor:'gray'}
+    if(null === s('.task', ptv)){
+      obj.divClass = 'task top'
+    }else{
+      obj.divClass = 'task'
+    }
+    const d = e_from(cAptt, obj)
+    ptv.appendChild(d)
+    // Bind handler to the remove button.
+    s('.remove-btn', d).onclick = () => {
+      remove_a_task(d, ptm)
+    }
+    s('.roll-btn', d).onclick = () => {
+      remove_a_task(d, ptm)
+      create_wip_task(task)
+    }
 
-      showTime(task, d)
+    show_time(task, d)
 
-      // Synchronize data.
-      ptm.push(task)  // Perhaps 0-100 means progress? Or an object.
-      localStorage.tasksInfo = JSON.stringify(store)
+    // Synchronize data.
+    ptm.push(task)  // Perhaps 0-100 means progress? Or an object.
+    localStorage.tasksInfo = JSON.stringify(store)
 
-      updateFooter()
-      return d
+    update_footer()
+    return d
   }
 
-  function showTime(task, view){
-      if(task.getTimeCost() > 0){
-          const a = view.getElementsByClassName('time-cost')[0]
-          a.className = 'time-cost'
-          a.innerHTML = task.getTimeCost()
-      }
+  const show_time = (task, view) => {
+    if(task.getTimeCost() > 0){
+      const a = s('.time-cost', view)
+      a.className = 'time-cost'
+      a.innerHTML = task.getTimeCost()
+    }
   }
 
-  ntv.onkeydown = function(event){
-    if(event.keyCode === 13 && ntv.value){
-      createIT(new Task({desc: ntv.value}))
+  ntv.onkeydown = e => {
+    if(e.keyCode === 13 && ntv.value){
+      create_wip_task(new Task({desc: ntv.value}))
       ntv.value = ''
     }
   }
 
-  document.getElementById('clear-completed-btn').onclick =
-  document.getElementById('clear-completed').onclick = function(){
-      const tasks = ctv.getElementsByClassName('task')
-      while(tasks[0] != undefined){
-          removeATask(tasks[0], ctm)
-      }
+  s('#clear-completed-btn').onclick =
+  s('#clear-completed').onclick = () => {
+    const tasks = ctv.getElementsByClassName('task')
+    while(tasks[0] != undefined){
+      remove_a_task(tasks[0], ctm)
+    }
   }
 
-  document.getElementById('clear-pending-btn').onclick =
-  document.getElementById('clear-pending').onclick = function(){
-      const tasks = ptv.getElementsByClassName('task')
-      while(tasks[0] != undefined){
-          removeATask(tasks[0], ptm)
-      }
+  s('#clear-pending-btn').onclick =
+  s('#clear-pending').onclick = () => {
+    const tasks = ptv.getElementsByClassName('task')
+    while(tasks[0] != undefined){
+      remove_a_task(tasks[0], ptm)
+    }
   }
 
   const data = localStorage.tasksInfo
@@ -400,18 +414,18 @@
     if(i == undefined) return
     i = new Task(i)
     if(i.activated){
-        activateIT(createIT(i))
+        activate_wip_task(create_wip_task(i))
     }else{
-        createIT(i)
+        create_wip_task(i)
     }
   }
   for (let key in completed) {
       if(completed[key] == undefined) return
-      createCT(new Task(completed[key]))
+      create_done_task(new Task(completed[key]))
   }
   for (let key in pending) {
       if(pending[key] == undefined) return
-      createPT(new Task(pending[key]))
+      create_pending_task(new Task(pending[key]))
   }
 })()
 </script>
