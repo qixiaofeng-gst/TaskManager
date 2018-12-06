@@ -63,6 +63,44 @@
     'color: darkgreen;'
   )
   
+  //const url_base = '/tms' //XXX Use this for deploy
+  const url_base = 'http://localhost:3100'
+  const post = (url, data) => new Promise((res, rej) => {
+    fetch(
+      `${url_base}/${url}?session=${localStorage.session}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    ).then(
+      resp => resp.json().then(
+        result => res(result)
+      ).catch(
+        err => rej({ err, msg: 'receive json failed' })
+      )
+    ).catch(
+      err => rej({ err, msg: 'fetch failed' })
+    )
+  })
+  const login = (email, password) => new Promise((res, rej) => {
+    post('user', { email, password }).then(
+      ({ success, session }) => {
+        if (success) {
+          localStorage.session = session
+          res(success)
+        } else {
+          rej({ msg: '登录信息有误' })
+        }
+      }
+    ).catch(err => rej(err))
+  })
+  login('hello', 'world').then(
+    () => console.log('hello world')
+  ).catch(err => console.log(err))
+  
   const s = (selector, context) => (
     context = context || document,
     context.querySelector(selector)
