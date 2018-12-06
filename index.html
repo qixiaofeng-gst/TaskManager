@@ -4,22 +4,22 @@
   <title>日常任务管理</title>
   <link rel="shortcut icon" href="css/task_manager.png" />
   <link rel="stylesheet" href="css/style.css" />
-  <script id='in-progress-task' type='text/template'>
-    <div class="{divClass}">
-      <a class="{iconClass}"></a>
+  <script id='in_progress_task' type='text/template'>
+    <div class="{div_class}">
+      <a class="{icon_class}"></a>
       <span>{desc}</span>
-      <a class="remove-btn" title="挂起任务"></a>
+      <a class="remove_btn" title="挂起任务"></a>
       <a class="complete-btn" title="标记已完成任务"></a>
       <a class="activate-btn" title="任务置顶(激活)"></a>
       <a class="up-btn">上移</a>
       <a class="time-cost hide" title="已花费时间(分钟)">0</a>
     </div>
   </script>
-  <script id='inactive-task' type='text/template'>
-    <div class="{divClass}">
-      <a class="colored-icon {iconColor}"></a>
+  <script id='inactive_task' type='text/template'>
+    <div class="{div_class}">
+      <a class="colored-icon {icon_color}"></a>
       <span>{desc}</span>
-      <a class="remove-btn" title="移除任务"></a>
+      <a class="remove_btn" title="移除任务"></a>
       <a class="roll-btn" title="恢复活跃"></a>
       <a class="time-cost hide" title="时间花费(分钟)">0</a>
     </div>
@@ -27,30 +27,49 @@
 </head>
 <body>
   <div id="contents"><!-- 主内容块的开始标签。 -->
-  <!-- 总的来说，有 3 栏数据，一栏是输入新任务和显示未完成任务的地方，一栏是已完成任务，还有一栏是已取消任务。 -->
-  <!-- 每个任务有开始时间、花费时间的属性。 -->
-  <div id="in-progress" style="text-align: center">
-  <h1>日常任务管理工具</h1>
-  <input id="new-task" type="text" placeholder="输入新任务" />
-  <div class="seg-divider">活跃的任务▽</div>
-  </div>
+    <!--
+      总的来说，有 3 栏数据，
+      一栏是输入新任务和显示未完成任务的地方，
+      一栏是已完成任务，
+      还有一栏是已取消任务。
+    -->
+    <!-- 每个任务有开始时间、花费时间的属性。 -->
+    <div id="in_progress" style="text-align: center">
+      <h1>日常任务管理工具</h1>
+      <input id="new_task" type="text" placeholder="输入新任务" />
+      <div class='output_box'></div>
+      <div class="seg_divider">活跃的任务▽</div>
+    </div>
 
-  <div class="seg-divider">完成的任务▽<a class="remove-btn" id="clear-completed-btn" title="移除所有已完成任务"></a></div>
+    <div class="seg_divider">完成的任务▽<a
+      class="remove_btn"
+      id="clear_completed_btn"
+      title="移除所有已完成任务"
+    ></a></div>
 
-  <div id="completed">
-  </div>
+    <div id="completed">
+    </div>
 
-  <div class="seg-divider">挂起的任务▽<a class="remove-btn" id="clear-pending-btn" title="移除所有挂起的任务"></a></div>
+    <div class="seg_divider">挂起的任务▽<a
+      class="remove_btn"
+      id="clear_pending_btn"
+      title="移除所有挂起的任务"
+    ></a></div>
 
-  <div id="pending">
-  </div>
-
+    <div id="pending">
+    </div>
   </div><!-- 主内容块的结束标签。 -->
 
   <div id="footer">
       <b id="it-count">0 </b>项活动任务
-      <a id="clear-completed" class="hide">清除<b id="ct-count"> 0 </b>项已完成任务</a>
-      <a id="clear-pending" class="hide">清除<b id="cc-count"> 0 </b>项已挂起任务</a>
+      <a
+        id="clear-completed"
+        class="hide"
+      >清除<b id="ct-count"> 0 </b>项已完成任务</a>
+      <a
+        id="clear-pending"
+        class="hide"
+      >清除<b id="cc-count"> 0 </b>项已挂起任务</a>
   </div>
 </body>
 
@@ -65,6 +84,7 @@
   
   //const url_base = '/tms' //XXX Use this for deploy
   const url_base = 'http://localhost:3100'
+  const msg_login = 'login please'
   const post = (url, data) => new Promise((res, rej) => {
     fetch(
       `${url_base}/${url}?session=${localStorage.session}`,
@@ -77,7 +97,13 @@
       }
     ).then(
       resp => resp.json().then(
-        result => res(result)
+        result => {
+          if (msg_login === result.msg) {
+            rej({ msg: '请先登录' })
+          } else {
+            res(result)
+          }
+        }
       ).catch(
         err => rej({ err, msg: 'receive json failed' })
       )
@@ -97,9 +123,7 @@
       }
     ).catch(err => rej(err))
   })
-  login('hello', 'world').then(
-    () => console.log('hello world')
-  ).catch(err => console.log(err))
+  const list_task = () => post('task/list')
   
   const s = (selector, context) => (
     context = context || document,
@@ -156,8 +180,8 @@
     }
   }
 
-  const itt = s('#in-progress-task').innerHTML
-  const cAptt = s('#inactive-task').innerHTML
+  const itt = s('#in_progress_task').innerHTML
+  const cAptt = s('#inactive_task').innerHTML
   
   const e_from = (template, model) => {
     const container = document.createElement('div')
@@ -171,9 +195,49 @@
     return container.querySelector('div')
   }
 
-  /////// Initialize the globals. ///////
-  const ntv = s('#new-task')    // New Task View.
-  const itv = s('#in-progress') // In-progress Tasks View.
+  const input_box = s('#new_task') // New Task View.
+  const output_box = s('.output_box')
+  const log = msg => output_box.innerHTML = msg || ''
+  const trait_login = 'email:'
+  const credentials = {}
+  const clear_input = () => (input_box.value = '')
+  const check_input_type = type => (type === input_box.getAttribute('type'))
+  const is_text_inputing = () => check_input_type('text')
+  const is_password_inputing = () => check_input_type('password')
+  const set_input_attr = obj => {
+    for (const k in obj) {
+      input_box.setAttribute(k, obj[k])
+    }
+  }
+  input_box.onkeydown = e => {
+    if(e.keyCode === 13 && input_box.value){
+      const desc = input_box.value
+      clear_input()
+      if (is_text_inputing()) {
+        if (desc.startsWith(trait_login)) {
+          credentials.email = desc.substr(trait_login.length, desc.length)
+          set_input_attr({
+            placeholder: '输入密码',
+            type: 'password'
+          })
+        } else {
+          create_wip_task(new Task({ desc }))
+        }
+      } else {
+        set_input_attr({
+          placeholder: '输入新任务',
+          type: 'text'
+        })
+        login(credentials.email, desc).catch(
+          res => log(`登录失败:${res.msg}`)
+        )
+      }
+    } else {
+      log()
+    }
+  }
+
+  const itv = s('#in_progress') // In-progress Tasks View.
   const ctv = s('#completed')   // Completed Tasks View.
   const ptv = s('#pending')   // Pending Tasks View.
 
@@ -198,20 +262,20 @@
   const create_wip_task = task => {  // Create In-progress Task.
     const obj = {desc: task.desc}
     if(null === s('.task', itv)){
-      obj.iconClass = 'colored-icon active'
-      obj.divClass = 'task top'
+      obj.icon_class = 'colored-icon active'
+      obj.div_class = 'task top'
     }else{
-      obj.iconClass = 'colored-icon yellow'
-      obj.divClass = 'task'
+      obj.icon_class = 'colored-icon yellow'
+      obj.div_class = 'task'
     }
     const d = e_from(itt, obj)
-    if (obj.divClass === 'task top') {
+    if (obj.div_class === 'task top') {
       task.activate(d)
     }
     itv.appendChild(d)
 
     // Bind handler to the buttons.
-    s('.remove-btn', d).onclick = () => {
+    s('.remove_btn', d).onclick = () => {
       // Pend a task.
       remove_a_task(d, itm)
       create_pending_task(task)
@@ -240,7 +304,7 @@
     return d
   }
 
-  const move_item_up = item => { // Only work for in-progress tasks
+  const move_item_up = item => { // Only work for in_progress tasks
     const prevItem = get_prev_sibling(item)
     const isSecond = prevItem.className.includes('top')
     if (isSecond) {
@@ -264,7 +328,7 @@
 
     // Activate the selected task.
     task = remove_a_task(view, itm)  // Temporarily remove the selected task.
-    const locator = s('.seg-divider', itv).nextSibling
+    const locator = s('.seg_divider', itv).nextSibling
     if(locator != null){  // Move current task to the head of the list.
       itv.insertBefore(view, locator)
     }else{
@@ -350,17 +414,17 @@
   const create_done_task = task => {  // Create Completed Task.
     task.complete()
 
-    const obj = {desc: task.desc, iconColor:'green'}
+    const obj = {desc: task.desc, icon_color:'green'}
     if(null === s('.task', ctv)){
-      obj.divClass = 'task top'
+      obj.div_class = 'task top'
     }else{
-      obj.divClass = 'task'
+      obj.div_class = 'task'
     }
     const d = e_from(cAptt, obj)
     ctv.appendChild(d)
 
     // Bind handler to the remove button.
-    s('.remove-btn', d).onclick = () => {
+    s('.remove_btn', d).onclick = () => {
       remove_a_task(d, ctm)
     }
     s('.roll-btn', d).onclick = () => {
@@ -381,16 +445,16 @@
   const create_pending_task = task => {  // Create Pending Task.
     task.pend()
 
-    const obj = {desc:task.desc, iconColor:'gray'}
+    const obj = {desc:task.desc, icon_color:'gray'}
     if(null === s('.task', ptv)){
-      obj.divClass = 'task top'
+      obj.div_class = 'task top'
     }else{
-      obj.divClass = 'task'
+      obj.div_class = 'task'
     }
     const d = e_from(cAptt, obj)
     ptv.appendChild(d)
     // Bind handler to the remove button.
-    s('.remove-btn', d).onclick = () => {
+    s('.remove_btn', d).onclick = () => {
       remove_a_task(d, ptm)
     }
     s('.roll-btn', d).onclick = () => {
@@ -416,14 +480,7 @@
     }
   }
 
-  ntv.onkeydown = e => {
-    if(e.keyCode === 13 && ntv.value){
-      create_wip_task(new Task({desc: ntv.value}))
-      ntv.value = ''
-    }
-  }
-
-  s('#clear-completed-btn').onclick =
+  s('#clear_completed_btn').onclick =
   s('#clear-completed').onclick = () => {
     const tasks = ctv.getElementsByClassName('task')
     while(tasks[0] != undefined){
@@ -431,7 +488,7 @@
     }
   }
 
-  s('#clear-pending-btn').onclick =
+  s('#clear_pending_btn').onclick =
   s('#clear-pending').onclick = () => {
     const tasks = ptv.getElementsByClassName('task')
     while(tasks[0] != undefined){
@@ -439,6 +496,9 @@
     }
   }
 
+  list_task().then(res => console.log('====', res)).catch(
+    res => log(`取数据失败:${res.msg}`)
+  )
   const data = localStorage.tasksInfo
   if(data == undefined) return
   // Init the tasks.
@@ -452,18 +512,18 @@
     if(i == undefined) return
     i = new Task(i)
     if(i.activated){
-        activate_wip_task(create_wip_task(i))
+      activate_wip_task(create_wip_task(i))
     }else{
-        create_wip_task(i)
+      create_wip_task(i)
     }
   }
   for (let key in completed) {
-      if(completed[key] == undefined) return
-      create_done_task(new Task(completed[key]))
+    if(completed[key] == undefined) return
+    create_done_task(new Task(completed[key]))
   }
   for (let key in pending) {
-      if(pending[key] == undefined) return
-      create_pending_task(new Task(pending[key]))
+    if(pending[key] == undefined) return
+    create_pending_task(new Task(pending[key]))
   }
 })()
 </script>
