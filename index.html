@@ -330,6 +330,12 @@
         if ('s' === key) {
           return selector => mami.querySelector(selector)
         }
+        if ('set' === key) {
+          return (key, value) => mami.setAttribute(key, value)
+        }
+        if ('attr' === key) {
+          return name => mami.getAttribute(name)
+        }
         if ('append' === key) {
           return child => mami.appendChild(child)
         }
@@ -436,12 +442,12 @@
   const trait_login = 'email:'
   const credentials = {}
   const clear_input = () => (input_box.value = '')
-  const check_input_type = type => (type === input_box.getAttribute('type'))
+  const check_input_type = type => (type === input_box.attr('type'))
   const is_text_inputing = () => check_input_type('text')
   const is_password_inputing = () => check_input_type('password')
   const set_input_attr = obj => {
     for (const k in obj) {
-      input_box.setAttribute(k, obj[k])
+      input_box.set(k, obj[k])
     }
   }
   input_box.onkeydown = e => {
