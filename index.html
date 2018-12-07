@@ -260,8 +260,8 @@
     'color: darkgreen;'
   )
 
-  const url_base = '/tms' //XXX Use this for deploy
-  //const url_base = 'http://localhost:3100'
+  //const url_base = '/tms' //XXX Use this for deploy
+  const url_base = 'https://www.gsegment.com/tms'
   const msg_login = 'login please'
   const post = (url, data) => new Promise((res, rej) => {
     fetch(
@@ -312,10 +312,39 @@
     log('任务保存失败')
   })
 
-  const s = (selector, context) => (
-    context = context || document,
-    context.querySelector(selector)
-  )
+  const s = (selector, context) => {
+    context = context || document
+    const target = (
+      context.is_proxy
+      ? context.s(selector)
+      : context.querySelector(selector)
+    )
+    if (!target) {
+      return target
+    }
+    const p = new Proxy(target, {
+      get: (mami, key, receiver) => {
+        if ('is_proxy' === key) {
+          return true
+        }
+        if ('s' === key) {
+          return selector => mami.querySelector(selector)
+        }
+        if ('append' === key) {
+          return child => mami.appendChild(child)
+        }
+        if ('insert' === key) {
+          return (view, locator) => mami.insertBefore(view, locator)
+        }
+        return mami[key]
+      },
+      set: (mami, key, value, receiver) => {
+        mami[key] = value
+        return value
+      }
+    })
+    return p
+  }
 
   /*const notifi = new Notification('hehe', {
     body: 'damn',
@@ -337,7 +366,7 @@
     }
     self.desc = obj.desc
     self.startTime = obj.startTime || 0  // Invalid value.
-    self.activated = obj.activated || false
+    self.is_activated = obj.is_activated || false
     self.is_cleared = obj.is_cleared || false
     self.state = obj.state || task_state.in_progress
     self.timeCost = obj.timeCost || 0  // In milliseconds.
@@ -355,20 +384,20 @@
 
     const inactivate = state => {
       self.state = state
-      if(false === self.activated) {
+      if(false === self.is_activated) {
         return
       }
       self.timeCost += Date.now() - self.startTime
       self.startTime = 0
-      self.activated = false
+      self.is_activated = false
       clear_displaying()
     }
 
     self.activate = view => {
       self.state = task_state.in_progress
-      if(self.activated) return
+      if(self.is_activated) return
       self.startTime = Date.now()
-      self.activated = true
+      self.is_activated = true
       h_displaying = setInterval(() => {
         const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
         const display = s('.time_cost', view)
@@ -386,8 +415,8 @@
     }
   }
 
-  const itt = s('.in_progress_task').innerHTML
-  const cAptt = s('.inactive_task').innerHTML
+  const task_view_template = s('.in_progress_task').innerHTML
+  const done_view_template = s('.inactive_task').innerHTML
 
   const e_from = (template, model) => {
     const container = document.createElement('div')
@@ -474,11 +503,11 @@
       obj.icon_class = 'colored_icon yellow'
       obj.div_class = 'task'
     }
-    const d = e_from(itt, obj)
+    const d = e_from(task_view_template, obj)
     if (obj.div_class === 'task top') {
       task.activate(d)
     }
-    itv.appendChild(d)
+    itv.append(d)
 
     // Bind handler to the buttons.
     s('.remove_btn', d).onclick = () => {
@@ -521,7 +550,7 @@
     }
     const content = prevItem.getElementsByTagName('span')[0].innerHTML
     const task = remove_a_task(item, in_progress_tasks)
-    itv.insertBefore(item, prevItem)
+    itv.insert(item, prevItem)
     insert_by_desc(in_progress_tasks, content, task)
     //TODO here should keep the order persistent
   }
@@ -542,9 +571,9 @@
     task = remove_a_task(view, in_progress_tasks)  // Temporarily remove the selected task.
     const locator = s('.seg_divider', itv).nextSibling
     if(locator != null){  // Move current task to the head of the list.
-      itv.insertBefore(view, locator)
+      itv.insert(view, locator)
     }else{
-      itv.appendChild(view)
+      itv.append(view)
     }
     // Mark current task as active.
     s('.colored_icon', view).className = 'colored_icon active'
@@ -633,8 +662,8 @@
     }else{
       obj.div_class = 'task'
     }
-    const d = e_from(cAptt, obj)
-    ctv.appendChild(d)
+    const d = e_from(done_view_template, obj)
+    ctv.append(d)
 
     // Bind handler to the remove button.
     s('.remove_btn', d).onclick = () => {
@@ -668,8 +697,8 @@
     }else{
       obj.div_class = 'task'
     }
-    const d = e_from(cAptt, obj)
-    ptv.appendChild(d)
+    const d = e_from(done_view_template, obj)
+    ptv.append(d)
     // Bind handler to the remove button.
     s('.remove_btn', d).onclick = () => {
       remove_a_task(d, pending_tasks)
@@ -701,8 +730,7 @@
     }
   }
 
-  s('.clear_completed_btn').onclick =
-  s('.clear_completed').onclick = () => {
+  const clear_completed_handler = () => {
     const tasks = ctv.getElementsByClassName('task')
     while(tasks[0] != undefined){
       const t = remove_a_task(tasks[0], completed_tasks)
@@ -710,9 +738,10 @@
       save_task(t)
     }
   }
+  s('.clear_completed_btn').onclick = clear_completed_handler
+  s('.clear_completed').onclick = clear_completed_handler
 
-  s('.clear_pending_btn').onclick =
-  s('.clear_pending').onclick = () => {
+  const clear_pending_handler = () => {
     const tasks = ptv.getElementsByClassName('task')
     while(tasks[0] != undefined){
       const t = remove_a_task(tasks[0], pending_tasks)
@@ -720,6 +749,8 @@
       save_task(t)
     }
   }
+  s('.clear_pending_btn').onclick = clear_pending_handler
+  s('.clear_pending').onclick = clear_pending_handler
 
   list_task().then(result => {
     const {
@@ -734,7 +765,7 @@
     for (const task of tasks) {
       if (task_state.in_progress === task.state) {
         const i = new Task(task)
-        if (task.activated) {
+        if (task.is_activated) {
           activate_wip_task(create_wip_task(i, true), true)
         } else {
           create_wip_task(i, true)
