@@ -260,8 +260,8 @@
     'color: darkgreen;'
   )
 
-  //const url_base = '/tms' //XXX Use this for deploy
-  const url_base = 'https://www.gsegment.com/tms'
+  const url_base = '/tms' //XXX Use this for deploy
+  //const url_base = 'https://www.gsegment.com/tms'
   const msg_login = 'login please'
   const post = (url, data) => new Promise((res, rej) => {
     fetch(
@@ -327,6 +327,9 @@
         if ('is_proxy' === key) {
           return true
         }
+        if ('mami' === key) {
+          return mami
+        }
         if ('s' === key) {
           return selector => mami.querySelector(selector)
         }
@@ -337,10 +340,20 @@
           return name => mami.getAttribute(name)
         }
         if ('append' === key) {
-          return child => mami.appendChild(child)
+          return (child => {
+            if (child.is_proxy) {
+              mami.appendChild(child.mami)
+            } else {
+              mami.appendChild(child)
+            }
+          })
         }
         if ('insert' === key) {
-          return (view, locator) => mami.insertBefore(view, locator)
+          return ((view, locator) => {
+            view = view.is_proxy ? view.mami : view
+            locator = locator.is_proxy ? locator.mami : locator
+            mami.insertBefore(view, locator)
+          })
         }
         return mami[key]
       },
@@ -433,7 +446,7 @@
       )
     }
     container.innerHTML = template
-    return container.querySelector('div')
+    return s('div', container)
   }
 
   const input_box = s('.new_task') // New Task View.
@@ -478,14 +491,13 @@
     }
   }
 
-  const itv = s('.in_progress') // In-progress Tasks View.
-  const ctv = s('.completed')   // Completed Tasks View.
-  const ptv = s('.pending')   // Pending Tasks View.
+  const in_progress_view = s('.in_progress') // In-progress Tasks View.
+  const completed_view = s('.completed')   // Completed Tasks View.
+  const pending_view = s('.pending')   // Pending Tasks View.
 
   const in_progress_tasks = []  // In-progress Tasks Model.
   const completed_tasks = []  // Completed Tasks Model.
   const pending_tasks = []  // Pending Tasks Model.
-  const store = {inProgress: in_progress_tasks, completed: completed_tasks, pending: pending_tasks}
   /////// Globals initialized. ///////
 
   const update_footer = () => {
@@ -502,7 +514,7 @@
 
   const create_wip_task = (task, is_init) => {  // Create In-progress Task.
     const obj = {desc: task.desc}
-    if(null === s('.task', itv)){
+    if(null === in_progress_view.s('.task')){
       obj.icon_class = 'colored_icon active'
       obj.div_class = 'task top'
     }else{
@@ -513,26 +525,28 @@
     if (obj.div_class === 'task top') {
       task.activate(d)
     }
-    itv.append(d)
+    in_progress_view.append(d)
 
     // Bind handler to the buttons.
-    s('.remove_btn', d).onclick = () => {
+    d.s('.remove_btn').onclick = () => {
       // Pend a task.
       remove_a_task(d, in_progress_tasks)
       create_pending_task(task)
     }
-    s('.complete_btn', d).onclick = () => {
+    d.s('.complete_btn').onclick = () => {
       // Complete a task.
       remove_a_task(d, in_progress_tasks)
       create_done_task(task)
     }
-    s('.activate_btn', d).onclick = () => {
+    d.s('.activate_btn').onclick = () => {
       // Activate a task.
       activate_wip_task(d)
     }
-    s('.up_btn', d).onclick = () => {
+    d.s('.up_btn').onclick = () => {
       // Move a task up one row.
-      move_item_up(d)
+      const exchanged = move_item_up(d)
+      save_task(exchanged)
+      save_task(task)
     }
 
     show_time(task, d)
@@ -540,6 +554,11 @@
     // Synchronize data.
     in_progress_tasks.push(task)
     if (!is_init) {
+      task.sn = (
+        (in_progress_tasks.length > 0)
+        ? (in_progress_tasks[in_progress_tasks.length - 1].sn + 1)
+        : 0
+      )
       task.state = task_state.in_progress
       save_task(task)
     }
@@ -556,30 +575,29 @@
     }
     const content = prevItem.getElementsByTagName('span')[0].innerHTML
     const task = remove_a_task(item, in_progress_tasks)
-    itv.insert(item, prevItem)
-    insert_by_desc(in_progress_tasks, content, task)
-    //TODO here should keep the order persistent
+    in_progress_view.insert(item, prevItem)
+    return insert_by_desc(in_progress_tasks, content, task)
   }
 
   const activate_wip_task = (view, is_init) => {
     // De-activate the current active task.
-    const top = s('.top', itv)
+    const top = in_progress_view.s('.top')
     s('.active', top).className = 'colored_icon yellow'
     top.className = 'task'
-    let task = in_progress_tasks[0]
-    task.inactivate()
+    const top_task = in_progress_tasks[0]
+    top_task.inactivate()
     if (!is_init) {
-      save_task(task)
+      save_task(top_task)
     }
-    show_time(task, top)
+    show_time(top_task, top)
 
     // Activate the selected task.
-    task = remove_a_task(view, in_progress_tasks)  // Temporarily remove the selected task.
-    const locator = s('.seg_divider', itv).nextSibling
+    const task = remove_a_task(view, in_progress_tasks)  // Temporarily remove the selected task.
+    const locator = in_progress_view.s('.seg_divider').nextSibling
     if(locator != null){  // Move current task to the head of the list.
-      itv.insert(view, locator)
+      in_progress_view.insert(view, locator)
     }else{
-      itv.append(view)
+      in_progress_view.append(view)
     }
     // Mark current task as active.
     s('.colored_icon', view).className = 'colored_icon active'
@@ -590,6 +608,7 @@
     task.activate(view)
     show_time(task, view)
     if (!is_init) {
+      task.sn = top_task.sn - 1
       save_task(task)
     }
 
@@ -630,8 +649,12 @@
     let index = 0
     for (const t of arr) {
       if (desc === t.desc) {
+        const sn = toInsert.sn
+        toInsert.state = task_state.in_progress
+        toInsert.sn = t.sn
+        t.sn = sn
         arr.splice(index, 0, toInsert)
-        return toInsert
+        return t
       }
       ++index
     }
@@ -649,9 +672,9 @@
         get_by_desc(in_progress_tasks, s('span', nextTask).innerHTML).activate(nextTask)
       }
     }
-    c.removeChild(view)
+    c.removeChild(view.is_proxy ? view.mami : view)
 
-    const taskDesc = view.getElementsByTagName('span')[0].innerHTML
+    const taskDesc = view.s('span').innerHTML
     const task = remove_by_desc(type, taskDesc)
     task.complete()
 
@@ -663,21 +686,21 @@
     task.complete()
 
     const obj = {desc: task.desc, icon_color:'green'}
-    if(null === s('.task', ctv)){
+    if(null === completed_view.s('.task')){
       obj.div_class = 'task top'
     }else{
       obj.div_class = 'task'
     }
     const d = e_from(done_view_template, obj)
-    ctv.append(d)
+    completed_view.append(d)
 
     // Bind handler to the remove button.
-    s('.remove_btn', d).onclick = () => {
+    d.s('.remove_btn').onclick = () => {
       remove_a_task(d, completed_tasks)
       task.is_cleared = true
       save_task(task)
     }
-    s('.roll_btn', d).onclick = () => {
+    d.s('.roll_btn').onclick = () => {
       remove_a_task(d, completed_tasks)
       create_wip_task(task)
     }
@@ -698,20 +721,20 @@
     task.pend()
 
     const obj = {desc:task.desc, icon_color:'gray'}
-    if(null === s('.task', ptv)){
+    if(null === pending_view.s('.task')){
       obj.div_class = 'task top'
     }else{
       obj.div_class = 'task'
     }
     const d = e_from(done_view_template, obj)
-    ptv.append(d)
+    pending_view.append(d)
     // Bind handler to the remove button.
-    s('.remove_btn', d).onclick = () => {
+    d.s('.remove_btn').onclick = () => {
       remove_a_task(d, pending_tasks)
       task.is_cleared = true
       save_task(task)
     }
-    s('.roll_btn', d).onclick = () => {
+    d.s('.roll_btn').onclick = () => {
       remove_a_task(d, pending_tasks)
       create_wip_task(task)
     }
@@ -737,7 +760,7 @@
   }
 
   const clear_completed_handler = () => {
-    const tasks = ctv.getElementsByClassName('task')
+    const tasks = completed_view.getElementsByClassName('task')
     while(tasks[0] != undefined){
       const t = remove_a_task(tasks[0], completed_tasks)
       t.is_cleared = true
@@ -748,7 +771,7 @@
   s('.clear_completed').onclick = clear_completed_handler
 
   const clear_pending_handler = () => {
-    const tasks = ptv.getElementsByClassName('task')
+    const tasks = pending_view.getElementsByClassName('task')
     while(tasks[0] != undefined){
       const t = remove_a_task(tasks[0], pending_tasks)
       t.is_cleared = true
@@ -767,6 +790,11 @@
       log('取数据失败 : 请咨询服务器管理员')
       return
     }
+    tasks.sort(({ sn: a }, { sn: b }) => {
+      a = a || 0
+      b = b || 0
+      return a - b
+    })
     // Init the tasks.
     for (const task of tasks) {
       if (task_state.in_progress === task.state) {
@@ -782,9 +810,10 @@
         create_pending_task(new Task(task), true)
       }
     }
-  }).catch(res => {
-    log(`取数据失败 : ${res.msg}`)
   })
+  // .catch(res => {
+  //   log(`取数据失败 : ${res.msg}`)
+  // })
 })()
 </script>
 </html>
