@@ -810,10 +810,9 @@
         create_pending_task(new Task(task), true)
       }
     }
+  }).catch(res => {
+    log(`取数据失败 : ${res.msg}`)
   })
-  // .catch(res => {
-  //   log(`取数据失败 : ${res.msg}`)
-  // })
 })()
 </script>
 </html>
