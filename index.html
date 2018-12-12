@@ -260,8 +260,8 @@
     'color: darkgreen;'
   )
 
-  const url_base = '/tms' //XXX Use this for deploy
-  //const url_base = 'https://www.gsegment.com/tms'
+  //const url_base = '/tms' //XXX Use this for deploy
+  const url_base = 'https://www.gsegment.com/tms'
   const msg_login = 'login please'
   const post = (url, data) => new Promise((res, rej) => {
     fetch(
@@ -312,48 +312,43 @@
     log('任务保存失败')
   })
 
-  const s = (selector, context) => {
-    context = context || document
-    const target = (
-      context.is_proxy
-      ? context.s(selector)
-      : context.querySelector(selector)
-    )
-    if (!target) {
-      return target
+  const p_dom = dom => {
+    if (!dom) {
+      return dom
     }
-    const p = new Proxy(target, {
+    const trimmed_class = dom.className.trim()
+    const classes = trimmed_class.length > 0 ? trimmed_class.split(/\s+/) : []
+    const worker = {
+      is_proxy: true,
+      mami: dom,
+      s: selector => p_dom(dom.querySelector(selector)),
+      set: (key, value) => dom.setAttribute(key, value),
+      attr: name => dom.getAttribute(name),
+      append: child => {
+        if (child.is_proxy) {
+          dom.appendChild(child.mami)
+        } else {
+          dom.appendChild(child)
+        }
+      },
+      insert: (view, locator) => {
+        view = view.is_proxy ? view.mami : view
+        locator = locator.is_proxy ? locator.mami : locator
+        dom.insertBefore(view, locator)
+      },
+      add_class: clz => {
+        if (!clz || classes.includes(clz)) {
+          return
+        }
+        classes.push(clz)
+        dom.className = classes.join(' ')
+      }
+    }
+
+    const handler = {
       get: (mami, key, receiver) => {
-        if ('is_proxy' === key) {
-          return true
-        }
-        if ('mami' === key) {
-          return mami
-        }
-        if ('s' === key) {
-          return selector => mami.querySelector(selector)
-        }
-        if ('set' === key) {
-          return (key, value) => mami.setAttribute(key, value)
-        }
-        if ('attr' === key) {
-          return name => mami.getAttribute(name)
-        }
-        if ('append' === key) {
-          return (child => {
-            if (child.is_proxy) {
-              mami.appendChild(child.mami)
-            } else {
-              mami.appendChild(child)
-            }
-          })
-        }
-        if ('insert' === key) {
-          return ((view, locator) => {
-            view = view.is_proxy ? view.mami : view
-            locator = locator.is_proxy ? locator.mami : locator
-            mami.insertBefore(view, locator)
-          })
+        if (worker.hasOwnProperty(key)) {
+          return worker[key]
         }
         return mami[key]
       },
@@ -361,9 +356,12 @@
         mami[key] = value
         return value
       }
-    })
-    return p
+    }
+
+    return new Proxy(dom, handler)
   }
+
+  const s = selector => p_dom(document.querySelector(selector))
 
   /*const notifi = new Notification('hehe', {
     body: 'damn',
@@ -419,7 +417,7 @@
       self.is_activated = true
       h_displaying = setInterval(() => {
         const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
-        const display = s('.time_cost', view)
+        const display = view.s('.time_cost')
         display.className = 'time_cost'
         display.innerHTML = `${Math.round(time_cost)}`
       }, 10000)
@@ -438,7 +436,7 @@
   const done_view_template = s('.inactive_task').innerHTML
 
   const e_from = (template, model) => {
-    const container = document.createElement('div')
+    const container = p_dom(document.createElement('div'))
     for (const key in model) {
       template = template.replace(
         new RegExp('{' + key + '}', 'g'),
@@ -446,7 +444,7 @@
       )
     }
     container.innerHTML = template
-    return s('div', container)
+    return container.s('div')
   }
 
   const input_box = s('.new_task') // New Task View.
@@ -582,7 +580,7 @@
   const activate_wip_task = (view, is_init) => {
     // De-activate the current active task.
     const top = in_progress_view.s('.top')
-    s('.active', top).className = 'colored_icon yellow'
+    top.s('.active').className = 'colored_icon yellow'
     top.className = 'task'
     const top_task = in_progress_tasks[0]
     top_task.inactivate()
@@ -600,7 +598,7 @@
       in_progress_view.append(view)
     }
     // Mark current task as active.
-    s('.colored_icon', view).className = 'colored_icon active'
+    view.s('.colored_icon').add_class('active')
     view.className = 'task top'
 
     // Synchronize the storage.
@@ -668,8 +666,8 @@
     if(view.className == 'task top' && nextTask != null && nextTask.className == 'task'){
       nextTask.className = 'task top'
       if(type == in_progress_tasks){
-        s('.colored_icon', nextTask).className = 'colored_icon active'
-        get_by_desc(in_progress_tasks, s('span', nextTask).innerHTML).activate(nextTask)
+        nextTask.s('.colored_icon').className = 'colored_icon active'
+        get_by_desc(in_progress_tasks, nextTask.s('span').innerHTML).activate(nextTask)
       }
     }
     c.removeChild(view.is_proxy ? view.mami : view)
@@ -753,7 +751,7 @@
 
   const show_time = (task, view) => {
     if(task.getTimeCost() > 0){
-      const a = s('.time_cost', view)
+      const a = view.s('.time_cost')
       a.className = 'time_cost'
       a.innerHTML = task.getTimeCost()
     }
@@ -811,6 +809,7 @@
       }
     }
   }).catch(res => {
+    console.log(res, '<<<<<<< Error')
     log(`取数据失败 : ${res.msg}`)
   })
 })()
