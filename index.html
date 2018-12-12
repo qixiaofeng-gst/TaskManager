@@ -342,6 +342,23 @@
         }
         classes.push(clz)
         dom.className = classes.join(' ')
+      },
+      has_class: clz => {
+        if (!clz) {
+          return false
+        }
+        return classes.includes(clz)
+      },
+      remove_class: clz => {
+        if (!clz) {
+          return
+        }
+        const idx = classes.indexOf(clz)
+        if (idx < 0) {
+          return
+        }
+        classes.splice(idx, 1)
+        dom.className = classes.join(' ')
       }
     }
 
@@ -418,7 +435,7 @@
       h_displaying = setInterval(() => {
         const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
         const display = view.s('.time_cost')
-        display.className = 'time_cost'
+        display.remove_class('.hide')
         display.innerHTML = `${Math.round(time_cost)}`
       }, 10000)
     }
@@ -506,8 +523,18 @@
     s('.it-count').innerHTML = itCount + ' '
     s('.ct-count').innerHTML = ' ' + ctCount + ' '
     s('.cc-count').innerHTML = ' ' + ccCount + ' '
-    s('.clear_completed').className = (ctCount > 0) ? 'clear_completed' : 'clear_completed hide'
-    s('.clear_pending').className = (ccCount > 0) ? 'clear_pending' : 'clear_pending hide'
+    const cc = s('.clear_completed')
+    if (ctCount > 0) {
+      cc.remove_class('hide')
+    } else {
+      cc.add_class('hide')
+    }
+    const cp = s('.clear_pending')
+    if (ccCount > 0) {
+      cp.remove_class('hide')
+    } else {
+      cp.add_class('hide')
+    }
   }
 
   const create_wip_task = (task, is_init) => {  // Create In-progress Task.
@@ -567,11 +594,11 @@
 
   const move_item_up = item => { // Only work for in_progress tasks
     const prevItem = get_prev_sibling(item)
-    const isSecond = prevItem.className.includes('top')
+    const isSecond = prevItem.has_class('top')
     if (isSecond) {
       return
     }
-    const content = prevItem.getElementsByTagName('span')[0].innerHTML
+    const content = prevItem.s('span').innerHTML
     const task = remove_a_task(item, in_progress_tasks)
     in_progress_view.insert(item, prevItem)
     return insert_by_desc(in_progress_tasks, content, task)
@@ -580,8 +607,8 @@
   const activate_wip_task = (view, is_init) => {
     // De-activate the current active task.
     const top = in_progress_view.s('.top')
-    top.s('.active').className = 'colored_icon yellow'
-    top.className = 'task'
+    top.s('.active').remove_class('active')
+    top.remove_class('top')
     const top_task = in_progress_tasks[0]
     top_task.inactivate()
     if (!is_init) {
@@ -599,7 +626,7 @@
     }
     // Mark current task as active.
     view.s('.colored_icon').add_class('active')
-    view.className = 'task top'
+    view.add_class('top')
 
     // Synchronize the storage.
     in_progress_tasks.splice(0, 0, task)
@@ -614,13 +641,19 @@
   }
 
   const get_prev_sibling = view => {
-    const { previousSibling } = view
-    return (previousSibling instanceof Text) ? previousSibling.previousSibling : previousSibling
+    let { previousSibling } = view
+    previousSibling = (previousSibling instanceof Text)
+      ? previousSibling.previousSibling
+      : previousSibling
+    return p_dom(previousSibling)
   }
 
   const get_next_sibling = view => {
-    const { nextSibling } = view
-    return (nextSibling instanceof Text) ? nextSibling.nextSibling : nextSibling
+    let { nextSibling } = view
+    nextSibling = (nextSibling instanceof Text)
+      ? nextSibling.nextSibling
+      : nextSibling
+    return p_dom(nextSibling)
   }
 
   const get_by_desc = (arr, desc) => {
@@ -663,10 +696,10 @@
     // Remove the task view from the page.
     const c = view.parentNode
     const nextTask = get_next_sibling(view)
-    if(view.className == 'task top' && nextTask != null && nextTask.className == 'task'){
-      nextTask.className = 'task top'
+    if(view.has_class('top') && nextTask && nextTask.has_class('task')){
+      nextTask.add_class('top')
       if(type == in_progress_tasks){
-        nextTask.s('.colored_icon').className = 'colored_icon active'
+        nextTask.s('.colored_icon').add_class('active')
         get_by_desc(in_progress_tasks, nextTask.s('span').innerHTML).activate(nextTask)
       }
     }
@@ -752,28 +785,30 @@
   const show_time = (task, view) => {
     if(task.getTimeCost() > 0){
       const a = view.s('.time_cost')
-      a.className = 'time_cost'
+      a.remove_class('hide')
       a.innerHTML = task.getTimeCost()
     }
   }
 
   const clear_completed_handler = () => {
-    const tasks = completed_view.getElementsByClassName('task')
-    while(tasks[0] != undefined){
-      const t = remove_a_task(tasks[0], completed_tasks)
+    let task = completed_view.s('.task')
+    while(task){
+      const t = remove_a_task(task, completed_tasks)
       t.is_cleared = true
       save_task(t)
+      task = completed_view.s('.task')
     }
   }
   s('.clear_completed_btn').onclick = clear_completed_handler
   s('.clear_completed').onclick = clear_completed_handler
 
   const clear_pending_handler = () => {
-    const tasks = pending_view.getElementsByClassName('task')
-    while(tasks[0] != undefined){
-      const t = remove_a_task(tasks[0], pending_tasks)
+    let task = pending_view.s('.task')
+    while(task){
+      const t = remove_a_task(task, pending_tasks)
       t.is_cleared = true
       save_task(t)
+      task = pending_view.s('.task')
     }
   }
   s('.clear_pending_btn').onclick = clear_pending_handler
