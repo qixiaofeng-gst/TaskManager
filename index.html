@@ -265,7 +265,7 @@
   const msg_login = 'login please'
   const post = (url, data) => new Promise((res, rej) => {
     fetch(
-      `${url_base}/${url}?session=${localStorage.session}`,
+      `${url_base}/${url}?session=${localStorage.tm_session}`,
       {
         method: 'POST',
         body: JSON.stringify(data),
@@ -293,7 +293,7 @@
     post('user', { email, password }).then(
       ({ success, session }) => {
         if (success) {
-          localStorage.session = session
+          localStorage.tm_session = session
           res(success)
         } else {
           rej({ msg: '登录信息有误' })
