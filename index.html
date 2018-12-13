@@ -565,7 +565,7 @@
   const create_wip_task = (task, is_init) => {  // Create In-progress Task.
     const obj = {desc: task.desc}
     if(null === in_progress_view.s('.task')){
-      obj.icon_class = 'colored_icon active'
+      obj.icon_class = 'colored_icon yellow active'
       obj.div_class = 'task top'
     }else{
       obj.icon_class = 'colored_icon yellow'
