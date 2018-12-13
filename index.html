@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>日常任务管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="shortcut icon" href="css/task_manager.png" />
   <style media="screen">
   html,body{
@@ -56,7 +57,10 @@
     position: relative;
     margin: 38px 0 9px 0;
   }
-  .remove_btn, .complete_btn, .roll_btn, .activate_btn{
+  .remove_btn,
+  .complete_btn,
+  .roll_btn,
+  .activate_btn{
     position: absolute;
     top: 0px;
     display: none;
@@ -71,7 +75,9 @@
     line-height: 20px;
     color: gray;
   }
-  .task.top:hover .activate_btn, .task.top:hover .up_btn{
+  .task.top:hover .activate_btn,
+  .task.top:hover .up_btn,
+  .task.second:hover .up_btn{
     display: none;
   }
   .task .remove_btn,
@@ -316,8 +322,11 @@
     if (!dom) {
       return dom
     }
-    const trimmed_class = dom.className.trim()
-    const classes = trimmed_class.length > 0 ? trimmed_class.split(/\s+/) : []
+    const classes = () => {
+      const trimmed_class = (dom.className && dom.className.trim()) || ''
+      const classes = trimmed_class.length > 0 ? trimmed_class.split(/\s+/) : []
+      return classes
+    }
     const worker = {
       is_proxy: true,
       mami: dom,
@@ -337,28 +346,44 @@
         dom.insertBefore(view, locator)
       },
       add_class: clz => {
-        if (!clz || classes.includes(clz)) {
+        const old_ones = classes()
+        if (!clz || old_ones.includes(clz)) {
           return
         }
-        classes.push(clz)
-        dom.className = classes.join(' ')
+        old_ones.push(clz)
+        dom.className = old_ones.join(' ')
       },
       has_class: clz => {
         if (!clz) {
           return false
         }
-        return classes.includes(clz)
+        return classes().includes(clz)
       },
       remove_class: clz => {
         if (!clz) {
           return
         }
-        const idx = classes.indexOf(clz)
+        const old_ones = classes()
+        const idx = old_ones.indexOf(clz)
         if (idx < 0) {
           return
         }
-        classes.splice(idx, 1)
-        dom.className = classes.join(' ')
+        old_ones.splice(idx, 1)
+        dom.className = old_ones.join(' ')
+      },
+      next: () => {
+        let next = dom.nextSibling
+        while(next instanceof Text) {
+          next = next.nextSibling
+        }
+        return p_dom(next)
+      },
+      prev: () => {
+        let prev = dom.previousSibling
+        while(prev instanceof Text) {
+          prev = prev.previousSibling
+        }
+        return p_dom(prev)
       }
     }
 
@@ -570,6 +595,9 @@
     d.s('.up_btn').onclick = () => {
       // Move a task up one row.
       const exchanged = move_item_up(d)
+      if (false === exchanged) {
+        return
+      }
       save_task(exchanged)
       save_task(task)
     }
@@ -593,10 +621,10 @@
   }
 
   const move_item_up = item => { // Only work for in_progress tasks
-    const prevItem = get_prev_sibling(item)
+    const prevItem = item.prev()
     const isSecond = prevItem.has_class('top')
     if (isSecond) {
-      return
+      return false
     }
     const content = prevItem.s('span').innerHTML
     const task = remove_a_task(item, in_progress_tasks)
@@ -618,10 +646,10 @@
 
     // Activate the selected task.
     const task = remove_a_task(view, in_progress_tasks)  // Temporarily remove the selected task.
-    const locator = in_progress_view.s('.seg_divider').nextSibling
-    if(locator != null){  // Move current task to the head of the list.
+    const locator = in_progress_view.s('.seg_divider').next()
+    if (locator) {  // Move current task to the head of the list.
       in_progress_view.insert(view, locator)
-    }else{
+    } else {
       in_progress_view.append(view)
     }
     // Mark current task as active.
@@ -638,22 +666,6 @@
     }
 
     update_footer()
-  }
-
-  const get_prev_sibling = view => {
-    let { previousSibling } = view
-    previousSibling = (previousSibling instanceof Text)
-      ? previousSibling.previousSibling
-      : previousSibling
-    return p_dom(previousSibling)
-  }
-
-  const get_next_sibling = view => {
-    let { nextSibling } = view
-    nextSibling = (nextSibling instanceof Text)
-      ? nextSibling.nextSibling
-      : nextSibling
-    return p_dom(nextSibling)
   }
 
   const get_by_desc = (arr, desc) => {
@@ -695,7 +707,7 @@
   const remove_a_task = (view, type) => {  // Remove In-progress Task.
     // Remove the task view from the page.
     const c = view.parentNode
-    const nextTask = get_next_sibling(view)
+    const nextTask = view.next()
     if(view.has_class('top') && nextTask && nextTask.has_class('task')){
       nextTask.add_class('top')
       if(type == in_progress_tasks){
