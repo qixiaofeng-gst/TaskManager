@@ -284,6 +284,129 @@
     'color: darkgreen;'
   )
 
+  const s = selector => p_dom(document.querySelector(selector))
+  const e = name => p_dom(document.createElement(name))
+  const p_dom = dom => {
+    if (!dom) {
+      return dom
+    }
+    const classes = () => {
+      const trimmed_class = (dom.className && dom.className.trim()) || ''
+      const classes = trimmed_class.length > 0 ? trimmed_class.split(/\s+/) : []
+      return classes
+    }
+    const worker = {
+      is_proxy: true,
+      mami: dom,
+      s: selector => p_dom(dom.querySelector(selector)),
+      set: (key, value) => (dom.setAttribute(key, value), pd),
+      attr: name => dom.getAttribute(name),
+      append: child => {
+        if (child.is_proxy) {
+          dom.appendChild(child.mami)
+        } else {
+          dom.appendChild(child)
+        }
+        return pd
+      },
+      insert: (view, locator) => {
+        view = view.is_proxy ? view.mami : view
+        locator = locator.is_proxy ? locator.mami : locator
+        dom.insertBefore(view, locator)
+        return pd
+      },
+      add_class: clz => {
+        const old_ones = classes()
+        if (!clz || old_ones.includes(clz)) {
+          return pd
+        }
+        old_ones.push(clz)
+        dom.className = old_ones.join(' ')
+        return pd
+      },
+      has_class: clz => {
+        if (!clz) {
+          return false
+        }
+        return classes().includes(clz)
+      },
+      remove_class: clz => {
+        if (!clz) {
+          return pd
+        }
+        const old_ones = classes()
+        const idx = old_ones.indexOf(clz)
+        if (idx < 0) {
+          return pd
+        }
+        old_ones.splice(idx, 1)
+        dom.className = old_ones.join(' ')
+        return pd
+      },
+      next: () => {
+        let next = dom.nextSibling
+        while(next instanceof Text) {
+          next = next.nextSibling
+        }
+        return p_dom(next)
+      },
+      prev: () => {
+        let prev = dom.previousSibling
+        while(prev instanceof Text) {
+          prev = prev.previousSibling
+        }
+        return p_dom(prev)
+      }
+    }
+
+    const handler = {
+      get: (mami, key, receiver) => {
+        if (worker.hasOwnProperty(key)) {
+          return worker[key]
+        }
+        return mami[key]
+      },
+      set: (mami, key, value, receiver) => {
+        mami[key] = value
+        return value
+      }
+    }
+
+    const pd = new Proxy(dom, handler)
+    return pd
+  }
+
+  const base = {
+    //XXX hard to say if this is the proper way
+    div: false,
+    span: false,
+    a: false
+  }
+  for (const key in base) {
+    base[key] = (...children) => {
+      const mami = e(key)
+      for (const child of children) {
+        mami.append(child)
+      }
+      return mami
+    }
+  }
+  const {
+    div,
+    span,
+    a
+  } = base
+  // <div class="{div_class}">
+  //   <a class="{icon_class}"></a>
+  //   <span>{desc}</span>
+  //   <a class="remove_btn" title="挂起任务"></a>
+  //   <a class="complete_btn" title="标记已完成任务"></a>
+  //   <a class="activate_btn" title="任务置顶(激活)"></a>
+  //   <a class="up_btn">上移</a>
+  //   <a class="time_cost hide" title="已花费时间(分钟)">0</a>
+  // </div>
+  //XXX Perhaps think the way with purpose.
+
   //const url_base = '/tms' //XXX Use this for deploy
   const url_base = 'https://www.gsegment.com/tms'
   const msg_login = 'login please'
@@ -336,93 +459,6 @@
     log('任务保存失败')
   })
 
-  const p_dom = dom => {
-    if (!dom) {
-      return dom
-    }
-    const classes = () => {
-      const trimmed_class = (dom.className && dom.className.trim()) || ''
-      const classes = trimmed_class.length > 0 ? trimmed_class.split(/\s+/) : []
-      return classes
-    }
-    const worker = {
-      is_proxy: true,
-      mami: dom,
-      s: selector => p_dom(dom.querySelector(selector)),
-      set: (key, value) => dom.setAttribute(key, value),
-      attr: name => dom.getAttribute(name),
-      append: child => {
-        if (child.is_proxy) {
-          dom.appendChild(child.mami)
-        } else {
-          dom.appendChild(child)
-        }
-      },
-      insert: (view, locator) => {
-        view = view.is_proxy ? view.mami : view
-        locator = locator.is_proxy ? locator.mami : locator
-        dom.insertBefore(view, locator)
-      },
-      add_class: clz => {
-        const old_ones = classes()
-        if (!clz || old_ones.includes(clz)) {
-          return
-        }
-        old_ones.push(clz)
-        dom.className = old_ones.join(' ')
-      },
-      has_class: clz => {
-        if (!clz) {
-          return false
-        }
-        return classes().includes(clz)
-      },
-      remove_class: clz => {
-        if (!clz) {
-          return
-        }
-        const old_ones = classes()
-        const idx = old_ones.indexOf(clz)
-        if (idx < 0) {
-          return
-        }
-        old_ones.splice(idx, 1)
-        dom.className = old_ones.join(' ')
-      },
-      next: () => {
-        let next = dom.nextSibling
-        while(next instanceof Text) {
-          next = next.nextSibling
-        }
-        return p_dom(next)
-      },
-      prev: () => {
-        let prev = dom.previousSibling
-        while(prev instanceof Text) {
-          prev = prev.previousSibling
-        }
-        return p_dom(prev)
-      }
-    }
-
-    const handler = {
-      get: (mami, key, receiver) => {
-        if (worker.hasOwnProperty(key)) {
-          return worker[key]
-        }
-        return mami[key]
-      },
-      set: (mami, key, value, receiver) => {
-        mami[key] = value
-        return value
-      }
-    }
-
-    return new Proxy(dom, handler)
-  }
-
-  const s = selector => p_dom(document.querySelector(selector))
-
   /*const notifi = new Notification('hehe', {
     body: 'damn',
     requireInteraction: true,
@@ -436,8 +472,13 @@
     pending: 'hung'
   }
 
-  function Task(obj){
-    const self = this
+  const create_task = obj => {
+    //TODO perhaps make this the true model
+    //TODO use proxy to wrap the task
+    //TODO add get 'view' with proxied dom value
+    //TODO add get 'data' with values need persistence
+    //TODO add get 'state' with values only exists at runtime
+    const self = {}
     if (obj._id) {
       self._id = obj._id
     }
@@ -490,6 +531,7 @@
     self.get_timecost = () => {
       return Math.round(self.timeCost / 60000)  // Return time in minutes.
     }
+    return self
   }
 
   const task_view_template = s('.in_progress_task').innerHTML
@@ -533,7 +575,7 @@
             type: 'password'
           })
         } else {
-          create_wip_task(new Task({ desc }))
+          create_wip_task(create_task({ desc }))
         }
       } else {
         set_input_attr({
@@ -858,19 +900,20 @@
       b = b || 0
       return a - b
     })
+    console.log('tasks ====', tasks)
     // Init the tasks.
     for (const task of tasks) {
       if (task_state.in_progress === task.state) {
-        const i = new Task(task)
+        const i = create_task(task)
         if (task.is_activated) {
           activate_wip_task(create_wip_task(i, true), true)
         } else {
           create_wip_task(i, true)
         }
       } else if (task_state.completed === task.state) {
-        create_done_task(new Task(task), true)
+        create_done_task(create_task(task), true)
       } else {
-        create_pending_task(new Task(task), true)
+        create_pending_task(create_task(task), true)
       }
     }
   }).catch(res => {
