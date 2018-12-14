@@ -16,6 +16,9 @@
     background: #eeeeee;
     color: #333333;
   }
+  .header {
+    text-align: center;
+  }
   .output_box {
     text-align: left;
   }
@@ -44,19 +47,13 @@
     padding: .5rem 0;
     border-top: 1px solid #cccccc;
   }
-  .task.top{
-    border: 0;
+  .task:nth-of-type(1){
+    border-top: none;
   }
-  div.seg_divider{
-    color: #555;
-    text-align: left;
-    font-size: 1rem;
-    line-height: 1rem;
-    padding-bottom: .4rem;
-    font-weight: bold;
-    border-bottom: 2px solid #bbb;
-    position: relative;
-    margin: 2rem 0 0 0;
+  .task:nth-of-type(1):hover .activate_btn,
+  .task:nth-of-type(1):hover .up_btn,
+  .task:nth-of-type(2):hover .up_btn{
+    display: none;
   }
   .remove_btn,
   .complete_btn,
@@ -75,11 +72,6 @@
     cursor: pointer;
     line-height: 1rem;
     color: gray;
-  }
-  .task.top:hover .activate_btn,
-  .task.top:hover .up_btn,
-  .task.second:hover .up_btn{
-    display: none;
   }
   .task .remove_btn,
   .task .complete_btn,
@@ -102,6 +94,17 @@
     color: #fff;
     border-radius: .5rem;
     cursor: default;
+  }
+  .seg_divider{
+    color: #555;
+    text-align: left;
+    font-size: 1rem;
+    line-height: 1rem;
+    padding-bottom: .4rem;
+    font-weight: bold;
+    border-bottom: 2px solid #bbb;
+    position: relative;
+    margin: 2rem 0 0 0;
   }
   .remove_btn{
     right: 0px;
@@ -162,7 +165,7 @@
   .yellow{
     background-color: #dc0;
   }
-  .active{
+  .in_progress .task:nth-of-type(1) .colored_icon{
     animation: active_color 1s infinite;
   }
   @keyframes active_color{
@@ -207,8 +210,8 @@
   }
   </style>
   <script class='in_progress_task' type='text/template'>
-    <div class="{div_class}">
-      <a class="{icon_class}"></a>
+    <div class="task">
+      <a class="colored_icon yellow {icon_class}"></a>
       <span>{desc}</span>
       <a class="remove_btn" title="挂起任务"></a>
       <a class="complete_btn" title="标记已完成任务"></a>
@@ -218,7 +221,7 @@
     </div>
   </script>
   <script class='inactive_task' type='text/template'>
-    <div class="{div_class}">
+    <div class="task">
       <a class="colored_icon {icon_color}"></a>
       <span>{desc}</span>
       <a class="remove_btn" title="移除任务"></a>
@@ -236,30 +239,28 @@
       还有一栏是已取消任务。
     -->
     <!-- 每个任务有开始时间、花费时间的属性。 -->
-    <div class="in_progress" style="text-align: center">
+    <div class="header">
       <h1>日常任务管理工具</h1>
       <div>
         <input class="new_task" type="text" placeholder="输入新任务" />
       </div>
       <div class='output_box'></div>
-      <div class="seg_divider">活跃的任务▽</div>
     </div>
+
+    <div class="seg_divider">活跃的任务▽</div>
+    <div class="in_progress"></div>
 
     <div class="seg_divider">完成的任务▽<a
       class="clear_completed_btn remove_btn"
       title="移除所有已完成任务"
     ></a></div>
-
-    <div class="completed">
-    </div>
+    <div class="completed"></div>
 
     <div class="seg_divider">挂起的任务▽<a
       class="clear_pending_btn remove_btn"
       title="移除所有挂起的任务"
     ></a></div>
-
-    <div class="pending">
-    </div>
+    <div class="pending"></div>
   </div><!-- 主内容块的结束标签。 -->
 
   <div class="footer">
@@ -478,16 +479,37 @@
     //TODO add get 'view' with proxied dom value
     //TODO add get 'data' with values need persistence
     //TODO add get 'state' with values only exists at runtime
+    const data = {
+      _id: false,
+      desc: false,
+      state: task_state.in_progress,
+      sn: 0,
+      is_activated: false,
+      is_cleared: false,
+      timeCost: 0,
+      startTime: 0
+    }
+    for (const key in data) {
+      if (false === obj.hasOwnProperty(key)) {
+        continue
+      }
+      data[key] = obj[key]
+    }
+    const view = e_from(
+      (data.state === task_state.in_progress)
+      ? task_view_template
+      : done_view_template
+    )
     const self = {}
     if (obj._id) {
       self._id = obj._id
     }
     self.desc = obj.desc
-    self.startTime = obj.startTime || 0  // Invalid value.
     self.is_activated = obj.is_activated || false
     self.is_cleared = obj.is_cleared || false
     self.state = obj.state || task_state.in_progress
     self.timeCost = obj.timeCost || 0  // In milliseconds.
+    self.startTime = obj.startTime || 0  // Invalid value.
     self.sn = obj.sn || 0 // Only work for active tasks.
 
     let h_displaying = false
@@ -624,15 +646,8 @@
 
   const create_wip_task = (task, is_init) => {  // Create In-progress Task.
     const obj = {desc: task.desc}
-    if(null === in_progress_view.s('.task')){
-      obj.icon_class = 'colored_icon yellow active'
-      obj.div_class = 'task top'
-    }else{
-      obj.icon_class = 'colored_icon yellow'
-      obj.div_class = 'task'
-    }
     const d = e_from(task_view_template, obj)
-    if (obj.div_class === 'task top') {
+    if (0 === in_progress_tasks.length) {
       task.activate(d)
     }
     in_progress_view.append(d)
@@ -665,7 +680,6 @@
     show_time(task, d)
 
     // Synchronize data.
-    in_progress_tasks.push(task)
     if (!is_init) {
       task.sn = (
         (in_progress_tasks.length > 0)
@@ -675,6 +689,7 @@
       task.state = task_state.in_progress
       save_task(task)
     }
+    in_progress_tasks.push(task)
 
     update_footer()
     return d
@@ -682,10 +697,6 @@
 
   const move_item_up = item => { // Only work for in_progress tasks
     const prevItem = item.prev()
-    const isSecond = prevItem.has_class('top')
-    if (isSecond) {
-      return false
-    }
     const content = prevItem.s('span').innerHTML
     const task = remove_a_task(item, in_progress_tasks)
     in_progress_view.insert(item, prevItem)
@@ -694,9 +705,7 @@
 
   const activate_wip_task = (view, is_init) => {
     // De-activate the current active task.
-    const top = in_progress_view.s('.top')
-    top.s('.active').remove_class('active')
-    top.remove_class('top')
+    const top = in_progress_view.s('.task:nth-of-type(1)')
     const top_task = in_progress_tasks[0]
     top_task.inactivate()
     if (!is_init) {
@@ -706,15 +715,12 @@
 
     // Activate the selected task.
     const task = remove_a_task(view, in_progress_tasks)  // Temporarily remove the selected task.
-    const locator = in_progress_view.s('.seg_divider').next()
+    const locator = in_progress_view.s('.task:nth-of-type(1)')
     if (locator) {  // Move current task to the head of the list.
       in_progress_view.insert(view, locator)
     } else {
       in_progress_view.append(view)
     }
-    // Mark current task as active.
-    view.s('.colored_icon').add_class('active')
-    view.add_class('top')
 
     // Synchronize the storage.
     in_progress_tasks.splice(0, 0, task)
@@ -768,13 +774,13 @@
     // Remove the task view from the page.
     const c = view.parentNode
     const nextTask = view.next()
-    if(view.has_class('top') && nextTask && nextTask.has_class('task')){
-      nextTask.add_class('top')
-      if(type == in_progress_tasks){
-        nextTask.s('.colored_icon').add_class('active')
-        get_by_desc(in_progress_tasks, nextTask.s('span').innerHTML).activate(nextTask)
-      }
-    }
+    //TODO if(view.has_class('top') && nextTask && nextTask.has_class('task')){
+    //   nextTask.add_class('top')
+    //   if(type == in_progress_tasks){
+    //     nextTask.s('.colored_icon').add_class('active')
+    //     get_by_desc(in_progress_tasks, nextTask.s('span').innerHTML).activate(nextTask)
+    //   }
+    // }
     c.removeChild(view.is_proxy ? view.mami : view)
 
     const taskDesc = view.s('span').innerHTML
@@ -789,11 +795,6 @@
     task.complete()
 
     const obj = {desc: task.desc, icon_color:'green'}
-    if(null === completed_view.s('.task')){
-      obj.div_class = 'task top'
-    }else{
-      obj.div_class = 'task'
-    }
     const d = e_from(done_view_template, obj)
     completed_view.append(d)
 
@@ -824,11 +825,6 @@
     task.pend()
 
     const obj = {desc:task.desc, icon_color:'gray'}
-    if(null === pending_view.s('.task')){
-      obj.div_class = 'task top'
-    }else{
-      obj.div_class = 'task'
-    }
     const d = e_from(done_view_template, obj)
     pending_view.append(d)
     // Bind handler to the remove button.
@@ -855,6 +851,9 @@
   }
 
   const show_time = (task, view) => {
+    if (!view) {
+      return
+    }
     if(task.get_timecost() > 0){
       const a = view.s('.time_cost')
       a.remove_class('hide')
