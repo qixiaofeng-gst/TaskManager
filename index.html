@@ -58,20 +58,14 @@
   .remove_btn,
   .complete_btn,
   .roll_btn,
-  .activate_btn{
+  .activate_btn,
+  .up_btn {
     position: absolute;
     top: 0;
     display: none;
     cursor: pointer;
     width: 1rem;
     height: 1rem;
-  }
-  .up_btn{
-    position: absolute;
-    display: none;
-    cursor: pointer;
-    line-height: 1rem;
-    color: gray;
   }
   .task .remove_btn,
   .task .complete_btn,
@@ -84,7 +78,7 @@
     position: absolute;
     display: block;
     top: .5rem;
-    right: 5rem;
+    right: 4rem;
     height: 1rem;
     width: 3rem;
     font-size: .6rem;
@@ -132,6 +126,9 @@
   }
   .up_btn{
     right: 3rem;
+    background-image: url(css/move_up.png);
+    background-repeat: no-repeat;
+    background-size: 1rem auto;
   }
   div.seg_divider:hover .remove_btn,
   .task:hover .remove_btn,
@@ -141,12 +138,12 @@
   .task:hover .up_btn{
     display: block;
   }
-  .remove_btn:hover, .complete_btn:hover,
-  .roll_btn:hover, .activate_btn:hover{
+  .remove_btn:hover,
+  .complete_btn:hover,
+  .roll_btn:hover,
+  .activate_btn:hover,
+  .up_btn:hover{
     background-position: 0 -1rem;
-  }
-  .up_btn:hover {
-    color: green;
   }
   a.colored_icon{
     width: 1rem;
@@ -211,12 +208,12 @@
   </style>
   <script class='in_progress_task' type='text/template'>
     <div class="task">
-      <a class="colored_icon yellow {icon_class}"></a>
+      <a class="colored_icon yellow"></a>
       <span>{desc}</span>
       <a class="remove_btn" title="挂起任务"></a>
       <a class="complete_btn" title="标记已完成任务"></a>
       <a class="activate_btn" title="任务置顶(激活)"></a>
-      <a class="up_btn">上移</a>
+      <a class="up_btn" title='上移'></a>
       <a class="time_cost hide" title="已花费时间(分钟)">0</a>
     </div>
   </script>
@@ -377,38 +374,6 @@
     return pd
   }
 
-  const base = {
-    //XXX hard to say if this is the proper way
-    div: false,
-    span: false,
-    a: false
-  }
-  for (const key in base) {
-    base[key] = (...children) => {
-      const mami = e(key)
-      for (const child of children) {
-        mami.append(child)
-      }
-      return mami
-    }
-  }
-  const {
-    div,
-    span,
-    a
-  } = base
-  // <div class="{div_class}">
-  //   <a class="{icon_class}"></a>
-  //   <span>{desc}</span>
-  //   <a class="remove_btn" title="挂起任务"></a>
-  //   <a class="complete_btn" title="标记已完成任务"></a>
-  //   <a class="activate_btn" title="任务置顶(激活)"></a>
-  //   <a class="up_btn">上移</a>
-  //   <a class="time_cost hide" title="已花费时间(分钟)">0</a>
-  // </div>
-  //XXX Perhaps think the way with purpose.
-
-  //const url_base = '/tms' //XXX Use this for deploy
   const url_base = 'https://www.gsegment.com/tms'
   const msg_login = 'login please'
   const post = (url, data) => new Promise((res, rej) => {
@@ -657,11 +622,13 @@
       // Pend a task.
       remove_a_task(d, in_progress_tasks)
       create_pending_task(task)
+      passively_active()
     }
     d.s('.complete_btn').onclick = () => {
       // Complete a task.
       remove_a_task(d, in_progress_tasks)
       create_done_task(task)
+      passively_active()
     }
     d.s('.activate_btn').onclick = () => {
       // Activate a task.
@@ -693,6 +660,15 @@
 
     update_footer()
     return d
+  }
+
+  const passively_active = () => {
+    const top = in_progress_view.s('.task:nth-of-type(1)')
+    if (!top) {
+      return
+    }
+    const desc = top.s('span').innerHTML
+    get_by_desc(in_progress_tasks, desc).activate(top)
   }
 
   const move_item_up = item => { // Only work for in_progress tasks
@@ -773,14 +749,6 @@
   const remove_a_task = (view, type) => {  // Remove In-progress Task.
     // Remove the task view from the page.
     const c = view.parentNode
-    const nextTask = view.next()
-    //TODO if(view.has_class('top') && nextTask && nextTask.has_class('task')){
-    //   nextTask.add_class('top')
-    //   if(type == in_progress_tasks){
-    //     nextTask.s('.colored_icon').add_class('active')
-    //     get_by_desc(in_progress_tasks, nextTask.s('span').innerHTML).activate(nextTask)
-    //   }
-    // }
     c.removeChild(view.is_proxy ? view.mami : view)
 
     const taskDesc = view.s('span').innerHTML
@@ -899,7 +867,6 @@
       b = b || 0
       return a - b
     })
-    console.log('tasks ====', tasks)
     // Init the tasks.
     for (const task of tasks) {
       if (task_state.in_progress === task.state) {
