@@ -582,7 +582,28 @@
   const completed_view = s('.completed')   // Completed Tasks View.
   const pending_view = s('.pending')   // Pending Tasks View.
 
-  const in_progress_tasks = []  // In-progress Tasks Model.
+  const in_progress_tasks = (() => {
+    const wip_mami = []
+    const get_worker = {
+      last: () => wip_mami[wip_mami.length - 1],
+      is_empty: () => (0 === wip_mami.length)
+    }
+    const wip_handler = {
+      get: (_, key) => {
+        if (get_worker.hasOwnProperty(key)) {
+          return get_worker[key]
+        }
+        return wip_mami[key]
+      },
+      set: (_, key, val) => {
+        console.log(key, val)
+        wip_mami[key] = val
+        return true
+      }
+    }
+    const p_wip = new Proxy(wip_mami, wip_handler)
+    return p_wip
+  })()
   const completed_tasks = []  // Completed Tasks Model.
   const pending_tasks = []  // Pending Tasks Model.
   /////// Globals initialized. ///////
@@ -612,7 +633,7 @@
   const create_wip_task = (task, is_init) => {  // Create In-progress Task.
     const obj = {desc: task.desc}
     const d = e_from(task_view_template, obj)
-    if (0 === in_progress_tasks.length) {
+    if (in_progress_tasks.is_empty()) {
       task.activate(d)
     }
     in_progress_view.append(d)
@@ -649,9 +670,8 @@
     // Synchronize data.
     if (!is_init) {
       task.sn = (
-        (in_progress_tasks.length > 0)
-        ? (in_progress_tasks[in_progress_tasks.length - 1].sn + 1)
-        : 0
+        in_progress_tasks.is_empty() ?
+        0 : (in_progress_tasks.last().sn + 1)
       )
       task.state = task_state.in_progress
       save_task(task)
