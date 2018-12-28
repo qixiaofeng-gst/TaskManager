@@ -80,10 +80,11 @@
     top: .5rem;
     right: 4rem;
     height: 1rem;
-    width: 3rem;
+    width: 7rem;
     font-size: .6rem;
     line-height: 1rem;
-    text-align: center;
+    text-align: right;
+    padding-right: .5rem;
     background-color: rgba(0, 0, 0, 0.2);
     color: #fff;
     border-radius: .5rem;
@@ -223,7 +224,7 @@
       <span>{desc}</span>
       <a class="remove_btn" title="移除任务"></a>
       <a class="roll_btn" title="恢复活跃"></a>
-      <a class="time_cost hide" title="时间花费(分钟)">0</a>
+      <a class="time_cost hide" title="时间花费">0</a>
     </div>
   </script>
 </head>
@@ -281,6 +282,26 @@
     'color: deepskyblue;',
     'color: darkgreen;'
   )
+
+  const one_moment = 20
+  const one_second = 50 * one_moment
+  const one_minute = 60 * one_second
+  const one_hour = 60 * one_minute
+  const one_day = 24 * one_hour
+  const two_digit = num => (num < 10 ? `0${num}` : num)
+  const time_str = interval => {
+    const day = Math.floor(interval / one_day)
+    const hour = Math.floor((interval % one_day) / one_hour)
+    const minute = Math.floor((interval % one_hour) / one_minute)
+    const second = Math.floor((interval % one_minute) / one_second)
+    const millisecond = interval % one_second
+    const ms = (millisecond < 10 ? `00${millisecond}`
+      : (millisecond < 100 ? `0${millisecond}`
+        : millisecond
+      )
+    )
+    return `${day}D${two_digit(hour)}:${two_digit(minute)}:${two_digit(second)}.${ms}`
+  }
 
   const s = selector => p_dom(document.querySelector(selector))
   const e = name => p_dom(document.createElement(name))
@@ -504,11 +525,10 @@
       self.startTime = self.startTime || Date.now()
       self.is_activated = true
       h_displaying = setInterval(() => {
-        const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
         const display = view.s('.time_cost')
         display.remove_class('hide')
-        display.innerHTML = `${Math.round(time_cost)}`
-      }, 10000)
+        display.innerHTML = time_str(self.get_timecost())
+      }, one_moment)
     }
 
     self.inactivate = () => inactivate(task_state.in_progress)
@@ -516,7 +536,8 @@
     self.pend = () => inactivate(task_state.pending)
 
     self.get_timecost = () => {
-      return Math.round(self.timeCost / 60000)  // Return time in minutes.
+      const increment = self.is_activated ? (Date.now() - self.startTime) : 0
+      return (self.timeCost + increment)
     }
     return self
   }
@@ -596,7 +617,6 @@
         return wip_mami[key]
       },
       set: (_, key, val) => {
-        console.log(key, val)
         wip_mami[key] = val
         return true
       }
@@ -688,7 +708,9 @@
       return
     }
     const desc = top.s('span').innerHTML
-    get_by_desc(in_progress_tasks, desc).activate(top)
+    const top_task = get_by_desc(in_progress_tasks, desc)
+    top_task.activate(top)
+    save_task(top_task)
   }
 
   const move_item_up = item => { // Only work for in_progress tasks
@@ -845,7 +867,7 @@
     if(task.get_timecost() > 0){
       const a = view.s('.time_cost')
       a.remove_class('hide')
-      a.innerHTML = task.get_timecost()
+      a.innerHTML = time_str(task.get_timecost())
     }
   }
 
