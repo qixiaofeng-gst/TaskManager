@@ -492,7 +492,7 @@
       if(false === self.is_activated) {
         return
       }
-      self.timeCost += Date.now() - self.startTime
+      self.timeCost += (Date.now() - self.startTime)
       self.startTime = 0
       self.is_activated = false
       clear_displaying()
@@ -501,7 +501,7 @@
     self.activate = view => {
       self.state = task_state.in_progress
       if(self.is_activated) return
-      self.startTime = Date.now()
+      self.startTime = self.startTime || Date.now()
       self.is_activated = true
       h_displaying = setInterval(() => {
         const time_cost = (self.timeCost + Date.now() - self.startTime) / 60000
