@@ -521,7 +521,6 @@ window.addEventListener('load', () => {
     c.removeChild(view.is_proxy ? view.mami : view)
 
     const taskDesc = view.s('span').innerText
-    console.log(taskDesc, '<<<<')
     const task = remove_by_desc(type, taskDesc)
     task.complete()
 
@@ -639,7 +638,6 @@ window.addEventListener('load', () => {
     })
     // Init the tasks.
     for (const task of tasks) {
-      console.log('====', task)
       if (task_state.in_progress === task.state) {
         const i = create_task(task)
         if (task.is_activated) {
