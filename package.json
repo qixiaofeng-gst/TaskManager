@@ -4,7 +4,8 @@
   "description": "A tool for self management.",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "build-dev": "webpack --config config/webpack.dev.js"
   },
   "repository": {
     "type": "git",
