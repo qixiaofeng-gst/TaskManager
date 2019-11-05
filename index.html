@@ -17,6 +17,7 @@
       footer_bg: '#f4fce8',
       border_lighter: '#ededed',
       shadow_lighter: 'rgba(0, 0, 0, .2)',
+      button_bg: 'rgba(0, 0, 0, .1)',
     }, const_proxy_handler)
     const Displays = new Proxy({
       flex: 'flex',
@@ -29,8 +30,16 @@
     const Aligns = new Proxy({
       center: 'center',
     }, const_proxy_handler)
+    const Cursors = new Proxy({
+      pointer: 'pointer',
+    }, const_proxy_handler)
 
     class View extends HTMLElement {
+      appendChild(newChild) {
+        super.appendChild(newChild)
+        return this
+      }
+
       setBGColor(value) {
         this.style.backgroundColor = value
         return this
@@ -72,35 +81,117 @@
       }
 
       setFontSize(value) {
-        this.style.fontSize = value
+        this.style.fontSize = `${value}rem`
+        return this
+      }
+
+      setLineHeight(value) {
+        this.style.lineHeight = `${value}rem`
+        return this
+      }
+
+      setRadius(value) {
+        this.style.borderRadius = value
+        return this
+      }
+
+      setCursor(value) {
+        this.style.cursor = value
+        return this
+      }
+
+      setContent(value) {
+        this.innerHTML = value
         return this
       }
     }
 
-    class Footer extends View {
+    class Counter extends View {
+      _generateContent = count => `count: ${count}`
+
+      constructor() {
+        super()
+      }
+
+      setContentGenerator(action) {
+        this._generateContent = action
+        return this
+      }
+
+      setCount(value) {
+        return this.setContent(this._generateContent(value))
+      }
+    }
+
+    class CounterButton extends Counter {
       constructor() {
         super()
         this
-          .setColor(Colors.footer_text)
-          .setBGColor(Colors.footer_bg)
+          .setDisplay(Displays.block)
+          .setFontSize(.6)
+          .setPadding('0 1rem')
+          .setBGColor(Colors.button_bg)
+          .setLineHeight(1.2)
+          .setRadius('.6rem')
+          .setShadow(`0 -1px 0 0 ${Colors.shadow_lighter}`)
+          .setCursor(Cursors.pointer)
+      }
+
+      setCount(value) {
+        if (value > 0) {
+          this.setDisplay(Displays.block)
+        } else {
+          this.setDisplay(Displays.none)
+        }
+        return super.setCount(value)
+      }
+    }
+
+    class Footer extends View {
+      totalCounter = new Counter()
+      buttonsContainer = new View()
+      completeCounter = new CounterButton()
+      pendingCounter = new CounterButton()
+
+      constructor() {
+        super()
+        this
           .setDisplay(Displays.flex)
-          .setPadding('1rem')
-          .setShadow(`0 2px 6px -1px ${Colors.shadow_lighter}`)
-          .setBorderTop(`1px solid ${Colors.border_lighter}`)
           .setJustifyContent(Justifies.space_between)
           .setAlignItems(Aligns.center)
-          .setFontSize('.8rem')
+          .setPadding('1rem')
+          .setFontSize(.8)
+          .setColor(Colors.footer_text)
+          .setBGColor(Colors.footer_bg)
+          .setShadow(`0 2px 6px -1px ${Colors.shadow_lighter}`)
+          .setBorderTop(`1px solid ${Colors.border_lighter}`)
+          .appendChild(this.totalCounter
+            .setContentGenerator(count => `${count} 项活动任务`)
+            .setCount(0),
+          )
+          .appendChild(this.buttonsContainer
+            .setDisplay(Displays.flex)
+            .appendChild(this.completeCounter
+              .setContentGenerator(count => `清除 ${count} 项已完成任务`)
+              .setCount(1),
+            )
+            .appendChild(this.pendingCounter
+              .setContentGenerator(count => `清除 ${count} 项已挂起任务`)
+              .setCount(1),
+            )
+          )
       }
     }
 
     class Task extends View {
       constructor() {
         super()
-        console.log('Hello Task.')
       }
     }
 
     customElements.define('page-footer', Footer)
+    customElements.define('counter-view', Counter)
+    customElements.define('counter-button', CounterButton)
     customElements.define('base-view', View)
     customElements.define('task-view', Task)
 
