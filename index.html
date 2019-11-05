@@ -2,9 +2,53 @@
 <html lang="cn">
 <head>
   <script>
+    class View extends HTMLElement {
+      constructor() {
+        super()
+        console.log('Hello View.')
+        this
+          .setBG('black')
+          .setWidth(100)
+          .setHeight(100)
+          .setDisplay('block')
+      }
+
+      setBG(value) {
+        this.style.backgroundColor = value
+        return this
+      }
+
+      setDisplay(value) {
+        this.style.display = value
+        return this
+      }
+
+      setWidth(value) {
+        this.style.width = `${value}px`
+        return this
+      }
+
+      setHeight(value) {
+        this.style.height = `${value}px`
+        return this
+      }
+    }
+
+    class Task extends View {
+      constructor() {
+        super()
+        console.log('Hello Task.')
+      }
+    }
+
+    customElements.define('base-view', View)
+    customElements.define('task-view', Task)
+
     window.addEventListener('load', () => {
+      document.body.append(new View());
+
       console.log(
-        '%c>>>> %cLog indicate %cdeveloping.',
+        '%c>>>>%c Log indicate%c developing.',
         'color: #353535; font-weight: 700;',
         'color: deepskyblue;',
         'color: darkgreen;',
@@ -94,14 +138,14 @@
         }
 
         const handler = {
-          get: (mami, key, _/*receiver*/) => {
+          get: (view, key, _/*receiver*/) => {
             if (worker.hasOwnProperty(key)) {
               return worker[key]
             }
-            return mami[key]
+            return view[key]
           },
-          set: (mami, key, value, _/*receiver*/) => {
-            mami[key] = value
+          set: (view, key, value, _/*receiver*/) => {
+            view[key] = value
             return value
           },
         }
@@ -175,11 +219,12 @@
       }
 
       const create_task = obj => {
-        //TODO perhaps make this the true model
-        //TODO use proxy to wrap the task
-        //TODO add get 'view' with proxied dom value
-        //TODO add get 'data' with values need persistence
-        //TODO add get 'state' with values only exists at runtime
+        // TODO Perhaps make this the true model
+        // TODO Use proxy to wrap the task
+        // TODO add get 'view' with proxy dom value
+        // TODO add get 'data' with values need persistence
+        // TODO add get 'state' with values only exists at runtime
+        // TODO Use extended HTMLElement instead of css classes
         const data = {
           _id: false,
           desc: false,
@@ -258,7 +303,9 @@
       const e_from = (template, model) => {
         const container = p_dom(document.createElement('div'))
         for (const key in model) {
-          template = template.replace(new RegExp('{' + key + '}', 'g'), '' + model[key])
+          if (model.hasOwnProperty(key)) {
+            template = template.replace(new RegExp('{' + key + '}', 'g'), '' + model[key])
+          }
         }
         container.innerHTML = template
         return container.s('div')
@@ -274,7 +321,9 @@
       const is_text_inputting = () => check_input_type('text')
       const set_input_attr = obj => {
         for (const k in obj) {
-          input_box.set(k, obj[k])
+          if (obj.hasOwnProperty(k)) {
+            input_box.set(k, obj[k])
+          }
         }
       }
       input_box.onkeydown = e => {
@@ -310,25 +359,24 @@
       const pending_view = s('.pending')   // Pending Tasks View.
 
       const in_progress_tasks = (() => {
-        const wip_mami = []
+        const wip_view = []
         const get_worker = {
-          last: () => wip_mami[wip_mami.length - 1],
-          is_empty: () => (0 === wip_mami.length),
+          last: () => wip_view[wip_view.length - 1],
+          is_empty: () => (0 === wip_view.length),
         }
         const wip_handler = {
           get: (_, key) => {
             if (get_worker.hasOwnProperty(key)) {
               return get_worker[key]
             }
-            return wip_mami[key]
+            return wip_view[key]
           },
           set: (_, key, val) => {
-            wip_mami[key] = val
+            wip_view[key] = val
             return true
           },
         }
-        const p_wip = new Proxy(wip_mami, wip_handler)
-        return p_wip
+        return new Proxy(wip_view, wip_handler)
       })()
       const completed_tasks = []  // Completed Tasks Model.
       const pending_tasks = []  // Pending Tasks Model.
@@ -497,7 +545,7 @@
       const remove_a_task = (view, type) => {  // Remove In-progress Task.
         // Remove the task view from the page.
         const c = view.parentNode
-        c.removeChild(view.is_proxy ? view.mami : view)
+        c.removeChild(view.is_proxy ? view.view : view)
 
         const taskDesc = view.s('span').innerText
         const task = remove_by_desc(type, taskDesc)
@@ -643,7 +691,9 @@
     html, body {
       padding: 0;
       margin: 0;
-      font-family: Microsoft YaHei;
+      font-family: Microsoft YaHei, monospace;
+      user-select: none;
+      /*pointer-events: none;*/
     }
 
     body {
@@ -751,7 +801,7 @@
     }
 
     .remove_btn {
-      right: 0px;
+      right: 0;
       background-image: url(css/destroy.png);
       background-repeat: no-repeat;
       background-size: 1rem auto;
@@ -872,7 +922,7 @@
       background-color: rgba(0, 0, 0, 0.2);
     }
 
-    .clear_btns {
+    .clear_buttons {
       display: flex;
     }
 
@@ -914,7 +964,9 @@
   <div class="header">
     <h1>日常任务管理工具</h1>
     <div>
-      <input class="new_task" type="text" placeholder="输入新任务"/>
+      <label>
+        <input class="new_task" type="text" placeholder="输入新任务"/>
+      </label>
     </div>
     <div class='output_box'></div>
   </div>
@@ -937,7 +989,7 @@
 
 <div class="footer">
   <div><b class="it-count">0 </b>项活动任务</div>
-  <div class="clear_btns">
+  <div class="clear_buttons">
     <a
       class="clear_completed hide"
     >清除<b class="ct-count"> 0 </b>项已完成任务</a>
