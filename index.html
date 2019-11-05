@@ -2,18 +2,36 @@
 <html lang="cn">
 <head>
   <script>
-    class View extends HTMLElement {
-      constructor() {
-        super()
-        console.log('Hello View.')
-        this
-          .setBG('black')
-          .setWidth(100)
-          .setHeight(100)
-          .setDisplay('block')
-      }
+    const const_proxy_handler = new Proxy({
+      get: (target, p, _) => target[p],
+      set: () => {
+        console.error('Constant could not be set')
+        return false
+      },
+    }, {
+      get: (target, p, _) => target[p],
+      set: () => false,
+    })
+    const Colors = new Proxy({
+      footer_text: '#555555',
+      footer_bg: '#f4fce8',
+      border_lighter: '#ededed',
+      shadow_lighter: 'rgba(0, 0, 0, .2)',
+    }, const_proxy_handler)
+    const Displays = new Proxy({
+      flex: 'flex',
+      block: 'block',
+      none: 'none',
+    }, const_proxy_handler)
+    const Justifies = new Proxy({
+      space_between: 'space-between',
+    }, const_proxy_handler)
+    const Aligns = new Proxy({
+      center: 'center',
+    }, const_proxy_handler)
 
-      setBG(value) {
+    class View extends HTMLElement {
+      setBGColor(value) {
         this.style.backgroundColor = value
         return this
       }
@@ -23,14 +41,55 @@
         return this
       }
 
-      setWidth(value) {
-        this.style.width = `${value}px`
+      setColor(value) {
+        this.style.color = value
         return this
       }
 
-      setHeight(value) {
-        this.style.height = `${value}px`
+      setPadding(value) {
+        this.style.padding = value
         return this
+      }
+
+      setShadow(value) {
+        this.style.boxShadow = value
+        return this
+      }
+
+      setBorderTop(value) {
+        this.style.borderTop = value
+        return this
+      }
+
+      setJustifyContent(value) {
+        this.style.justifyContent = value
+        return this
+      }
+
+      setAlignItems(value) {
+        this.style.alignItems = value
+        return this
+      }
+
+      setFontSize(value) {
+        this.style.fontSize = value
+        return this
+      }
+    }
+
+    class Footer extends View {
+      constructor() {
+        super()
+        this
+          .setColor(Colors.footer_text)
+          .setBGColor(Colors.footer_bg)
+          .setDisplay(Displays.flex)
+          .setPadding('1rem')
+          .setShadow(`0 2px 6px -1px ${Colors.shadow_lighter}`)
+          .setBorderTop(`1px solid ${Colors.border_lighter}`)
+          .setJustifyContent(Justifies.space_between)
+          .setAlignItems(Aligns.center)
+          .setFontSize('.8rem')
       }
     }
 
@@ -41,11 +100,13 @@
       }
     }
 
+    customElements.define('page-footer', Footer)
     customElements.define('base-view', View)
     customElements.define('task-view', Task)
 
     window.addEventListener('load', () => {
-      document.body.append(new View());
+      const footer = new Footer()
+      document.body.append(footer)
 
       console.log(
         '%c>>>>%c Log indicate%c developing.',
@@ -205,7 +266,7 @@
         log('任务保存失败', error)
       })
 
-      /*const notifi = new Notification('hehe', {
+      /*const notification = new Notification('test', {
         body: 'damn',
         requireInteraction: true,
         icon: 'css/task_manager.png',
@@ -282,7 +343,7 @@
           h_displaying = setInterval(() => {
             const display = view.s('.time_cost')
             display.remove_class('hide')
-            display.innerHTML = time_str(self.get_timecost())
+            display.innerHTML = time_str(self.get_time_cost())
           }, one_moment)
         }
 
@@ -290,7 +351,7 @@
         self.complete = () => inactivate(task_state.completed)
         self.pend = () => inactivate(task_state.pending)
 
-        self.get_timecost = () => {
+        self.get_time_cost = () => {
           const increment = self.is_activated ? (Date.now() - self.startTime) : 0
           return (self.timeCost + increment)
         }
@@ -618,10 +679,10 @@
         if (!view) {
           return
         }
-        if (task.get_timecost() > 0) {
+        if (task.get_time_cost() > 0) {
           const a = view.s('.time_cost')
           a.remove_class('hide')
-          a.innerHTML = time_str(task.get_timecost())
+          a.innerHTML = time_str(task.get_time_cost())
         }
       }
 
