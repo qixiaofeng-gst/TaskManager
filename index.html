@@ -18,6 +18,7 @@
       border_lighter: '#ededed',
       shadow_lighter: 'rgba(0, 0, 0, .2)',
       button_bg: 'rgba(0, 0, 0, .1)',
+      white: '#ffffff'
     }, const_proxy_handler)
     const Displays = new Proxy({
       flex: 'flex',
@@ -32,6 +33,12 @@
     }, const_proxy_handler)
     const Cursors = new Proxy({
       pointer: 'pointer',
+    }, const_proxy_handler)
+    const body = new Proxy({
+      append: view => {
+        document.body.append(view)
+        return body
+      },
     }, const_proxy_handler)
 
     class View extends HTMLElement {
@@ -135,6 +142,14 @@
           .setRadius('.6rem')
           .setShadow(`0 -1px 0 0 ${Colors.shadow_lighter}`)
           .setCursor(Cursors.pointer)
+
+        this.onmouseenter = () => {
+          this.setBGColor(Colors.shadow_lighter)
+        }
+
+        this.onmouseout = () => {
+          this.setBGColor(Colors.button_bg)
+        }
       }
 
       setCount(value) {
@@ -183,12 +198,29 @@
       }
     }
 
+    class Input extends View {
+      view = document.createElement('input')
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .appendChild(this.view)
+        this.view.style.fontSize = '1rem'
+        this.view.style.padding = '.3rem'
+        this.view.style.boxSizing = 'border-box'
+        this.view.style.width = '100%'
+        this.view.placeholder = '请输入任务'
+      }
+    }
+
     class Task extends View {
       constructor() {
         super()
       }
     }
 
+    customElements.define('simple-input', Input)
     customElements.define('page-footer', Footer)
     customElements.define('counter-view', Counter)
     customElements.define('counter-button', CounterButton)
@@ -197,7 +229,16 @@
 
     window.addEventListener('load', () => {
       const footer = new Footer()
-      document.body.append(footer)
+      const input = new Input()
+      const container = new View()
+        .setDisplay(Displays.block)
+        .setBGColor(Colors.white)
+        .setPadding('1rem')
+        .setShadow(`0 2px 6px 0 ${Colors.shadow_lighter}`)
+        .appendChild(input)
+      body
+        .append(container)
+        .append(footer)
 
       console.log(
         '%c>>>>%c Log indicate%c developing.',
@@ -855,10 +896,6 @@
       color: #333333;
     }
 
-    .header {
-      text-align: center;
-    }
-
     .output_box {
       text-align: left;
     }
@@ -1114,7 +1151,6 @@
   -->
   <!-- 每个任务有开始时间、花费时间的属性。 -->
   <div class="header">
-    <h1>日常任务管理工具</h1>
     <div>
       <label>
         <input class="new_task" type="text" placeholder="输入新任务"/>
