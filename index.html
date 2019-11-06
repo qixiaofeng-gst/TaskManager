@@ -233,6 +233,9 @@
       _tasks = []
       _placeholder = new Text()
       _title = new SectionTitle()
+      _onDragStart = _ => undefined
+      _onDragEnd = () => undefined
+      _onDrop = _ => undefined
       _beforeAddTask = _ => undefined
       _treatFirst = _ => undefined
 
@@ -243,6 +246,11 @@
           .addView(this._title)
           .addView(this._placeholder
             .setContent('无'))
+
+        this.ondragover = e => e.preventDefault()
+        this.ondragstart = e => this._onDragStart(e.target)
+        this.ondrop = e => this._onDrop(e.target)
+        this.ondragend = e => this._onDragEnd()
       }
 
       setTitle(strValue) {
@@ -252,6 +260,21 @@
 
       enableClear(isEnable = true) {
         this._title.enableRemove(isEnable)
+        return this
+      }
+
+      onDragStart(action) {
+        this._onDragStart = action
+        return this
+      }
+
+      onDragEnd(action) {
+        this._onDragEnd = action
+        return this
+      }
+
+      onDrop(action) {
+        this._onDrop = action
         return this
       }
 
@@ -424,6 +447,7 @@
           .setGridColumn('1rem 1fr 1rem', '.5rem')
           .addView(this._prefixDot)
           .addView(this._text)
+        this.draggable = true
       }
 
       setText(strValue) {
@@ -501,43 +525,47 @@
     window.onmouseup = () => {
       isMouseDown = false
     }
+    let
+      draggingTask = undefined,
+      hello = undefined
 
-    const footer = new Footer()
-    const input = new Input()
-    const output = new Text()
-      .setHeight('1rem')
-      .setLineHeight(1)
-    const wipSection = new Section()
-      .setTitle('进行中')
-      .enableClear(false)
-      .beforeAddTask(task => task.setPrefixColor(Colors.yellow))
-      .treatFirst(task => task.setDotAnimation('active_color 1s infinite'))
-    const completeSection = new Section()
-      .setTitle('已完成')
-      .enableClear()
-      .beforeAddTask(task => task.setPrefixColor(Colors.green))
-    const pendingSection = new Section()
-      .setTitle('已挂起')
-      .enableClear()
-      .beforeAddTask(task => task.setPrefixColor(Colors.gray))
-    const container = new Container()
-      .addView(input)
-      .addView(output)
-      .addView(wipSection)
-      .addView(pendingSection)
-      .addView(completeSection)
+    const
+      footer = new Footer(),
+      input = new Input(),
+      output = new Text()
+        .setHeight('1rem')
+        .setLineHeight(1),
+      wipSection = new Section()
+        .setTitle('进行中')
+        .enableClear(false)
+        .beforeAddTask(task => task.setPrefixColor(Colors.yellow))
+        .treatFirst(task => task.setDotAnimation('active_color 1s infinite')),
+      completeSection = new Section()
+        .setTitle('已完成')
+        .enableClear()
+        .beforeAddTask(task => task.setPrefixColor(Colors.green)),
+      pendingSection = new Section()
+        .setTitle('已挂起')
+        .enableClear()
+        .beforeAddTask(task => task.setPrefixColor(Colors.gray)),
+      container = new Container()
+        .addView(input)
+        .addView(output)
+        .addView(wipSection)
+        .addView(pendingSection)
+        .addView(completeSection)
     body
       .append(container)
       .append(footer)
 
-    const log = msg => output.setContent(msg || '')
-
-    const onDraw = () => requestAnimationFrame(() => {
-      if (false === input.isFocused && false === isMouseDown) {
-        input.focus()
-      }
-      onDraw()
-    })
+    const
+      log = msg => output.setContent(msg || ''),
+      onDraw = () => requestAnimationFrame(() => {
+        if (false === input.isFocused && false === isMouseDown) {
+          input.focus()
+        }
+        onDraw()
+      })
     onDraw()
 
     console.log(
