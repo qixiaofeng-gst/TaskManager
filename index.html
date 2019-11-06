@@ -13,17 +13,20 @@
       set: () => false,
     })
     const Colors = new Proxy({
-      footer_text: '#555555',
+      text: '#555555',
       footer_bg: '#f4fce8',
       border_lighter: '#ededed',
       shadow_lighter: 'rgba(0, 0, 0, .2)',
       button_bg: 'rgba(0, 0, 0, .1)',
-      white: '#ffffff'
+      white: '#ffffff',
     }, const_proxy_handler)
     const Displays = new Proxy({
       flex: 'flex',
       block: 'block',
       none: 'none',
+    }, const_proxy_handler)
+    const Repeats = new Proxy({
+      no_repeat: 'no-repeat',
     }, const_proxy_handler)
     const Justifies = new Proxy({
       space_between: 'space-between',
@@ -34,6 +37,9 @@
     const Cursors = new Proxy({
       pointer: 'pointer',
     }, const_proxy_handler)
+    const FontWeights = new Proxy({
+      bold: 'bold',
+    }, const_proxy_handler)
     const body = new Proxy({
       append: view => {
         document.body.append(view)
@@ -42,13 +48,48 @@
     }, const_proxy_handler)
 
     class View extends HTMLElement {
-      appendChild(newChild) {
+      addView(newChild) {
         super.appendChild(newChild)
+        return this
+      }
+
+      setWidth(strValue) {
+        this.style.width = strValue
+        return this
+      }
+
+      setHeight(strValue) {
+        this.style.height = strValue
+        return this
+      }
+
+      setFontWeight(strValue) {
+        this.style.fontWeight = strValue
         return this
       }
 
       setBGColor(value) {
         this.style.backgroundColor = value
+        return this
+      }
+
+      setBGImage(strValue) {
+        this.style.backgroundImage = `url(${strValue})`
+        return this
+      }
+
+      setBGPosition(strValue) {
+        this.style.backgroundPosition = strValue
+        return this
+      }
+
+      setBGSize(strValue) {
+        this.style.backgroundSize = strValue
+        return this
+      }
+
+      setBGRepeat(strValue) {
+        this.style.backgroundRepeat = strValue
         return this
       }
 
@@ -67,6 +108,11 @@
         return this
       }
 
+      setMargin(strValue) {
+        this.style.margin = strValue
+        return this
+      }
+
       setShadow(value) {
         this.style.boxShadow = value
         return this
@@ -74,6 +120,11 @@
 
       setBorderTop(value) {
         this.style.borderTop = value
+        return this
+      }
+
+      setBorderBottom(strValue) {
+        this.style.borderBottom = strValue
         return this
       }
 
@@ -109,6 +160,72 @@
 
       setContent(value) {
         this.innerHTML = value
+        return this
+      }
+    }
+
+    class Text extends View {
+      constructor() {
+        super()
+        this.setDisplay(Displays.block)
+      }
+    }
+
+    class SectionTitle extends View {
+      text = new Text()
+      removeButton = new IconButton()
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.flex)
+          .setJustifyContent(Justifies.space_between)
+          .setColor(Colors.text)
+          .setFontSize(1)
+          .setLineHeight(1)
+          .setPadding('0 0 .4rem 0')
+          .setFontWeight(FontWeights.bold)
+          .setBorderBottom(`2px solid ${Colors.border_lighter}`)
+          .setMargin('2rem 0 0 0')
+          .addView(this.text)
+          .addView(this.removeButton
+            .setBGImage('css/destroy.png')
+            .setDisplay(Displays.none))
+      }
+
+      setText(strValue) {
+        this.text.innerHTML = strValue
+      }
+
+      enableRemove(isEnable = true) {
+        if (isEnable) {
+          this.onmouseenter = () => this.removeButton.setDisplay(Displays.block)
+          this.onmouseleave = () => this.removeButton.setDisplay(Displays.none)
+        } else {
+          this.onmouseenter = undefined
+          this.onmouseleave = undefined
+        }
+        return this
+      }
+    }
+
+    class Section extends View {
+      title = new SectionTitle()
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .addView(this.title)
+      }
+
+      setTitle(strValue) {
+        this.title.setText(strValue)
+        return this
+      }
+
+      enableClear(isEnable = true) {
+        this.title.enableRemove(isEnable)
         return this
       }
     }
@@ -176,41 +293,59 @@
           .setAlignItems(Aligns.center)
           .setPadding('1rem')
           .setFontSize(.8)
-          .setColor(Colors.footer_text)
+          .setColor(Colors.text)
           .setBGColor(Colors.footer_bg)
           .setShadow(`0 2px 6px -1px ${Colors.shadow_lighter}`)
           .setBorderTop(`1px solid ${Colors.border_lighter}`)
-          .appendChild(this.totalCounter
+          .addView(this.totalCounter
             .setContentGenerator(count => `${count} 项活动任务`)
             .setCount(0),
           )
-          .appendChild(this.buttonsContainer
+          .addView(this.buttonsContainer
             .setDisplay(Displays.flex)
-            .appendChild(this.completeCounter
+            .addView(this.completeCounter
               .setContentGenerator(count => `清除 ${count} 项已完成任务`)
               .setCount(1),
             )
-            .appendChild(this.pendingCounter
+            .addView(this.pendingCounter
               .setContentGenerator(count => `清除 ${count} 项已挂起任务`)
               .setCount(1),
-            )
+            ),
           )
       }
     }
 
     class Input extends View {
       view = document.createElement('input')
+      _isFocused = false
 
       constructor() {
         super()
         this
           .setDisplay(Displays.block)
-          .appendChild(this.view)
+          .setMargin('1rem 0 0 0')
+          .addView(this.view)
         this.view.style.fontSize = '1rem'
         this.view.style.padding = '.3rem'
         this.view.style.boxSizing = 'border-box'
         this.view.style.width = '100%'
         this.view.placeholder = '请输入任务'
+
+        this.view.onfocus = () => {
+          this._isFocused = true
+        }
+
+        this.view.onblur = () => {
+          this._isFocused = false
+        }
+      }
+
+      get isFocused() {
+        return this._isFocused
+      }
+
+      focus(options) {
+        this.view.focus(options)
       }
     }
 
@@ -220,6 +355,38 @@
       }
     }
 
+    class Container extends View {
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .setBGColor(Colors.white)
+          .setPadding('1rem')
+          .setShadow(`0 2px 6px 0 ${Colors.shadow_lighter}`)
+      }
+    }
+
+    class IconButton extends View {
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .setBGRepeat(Repeats.no_repeat)
+          .setBGSize('1rem auto')
+          .setBGPosition('0 0')
+          .setWidth('1rem')
+          .setHeight('1rem')
+
+        this.onmouseenter = () => this.setBGPosition('0 -1rem')
+        this.onmouseleave = () => this.setBGPosition('0 0')
+      }
+    }
+
+    customElements.define('text-view', Text)
+    customElements.define('icon-button', IconButton)
+    customElements.define('container-view', Container)
+    customElements.define('section-view', Section)
+    customElements.define('section-title', SectionTitle)
     customElements.define('simple-input', Input)
     customElements.define('page-footer', Footer)
     customElements.define('counter-view', Counter)
@@ -227,18 +394,43 @@
     customElements.define('base-view', View)
     customElements.define('task-view', Task)
 
+    let isMouseDown = false
+    window.onmousedown = () => {
+      isMouseDown = true
+    }
+    window.onmouseup = () => {
+      isMouseDown = false
+    }
+
     window.addEventListener('load', () => {
       const footer = new Footer()
       const input = new Input()
-      const container = new View()
-        .setDisplay(Displays.block)
-        .setBGColor(Colors.white)
-        .setPadding('1rem')
-        .setShadow(`0 2px 6px 0 ${Colors.shadow_lighter}`)
-        .appendChild(input)
+      const wipSection = new Section()
+        .setTitle('进行中')
+        .enableClear(false)
+      wipSection.setTitle = 'test it'
+      const completeSection = new Section()
+        .setTitle('已完成')
+        .enableClear()
+      const pendingSection = new Section()
+        .setTitle('已挂起')
+        .enableClear()
+      const container = new Container()
+        .addView(input)
+        .addView(wipSection)
+        .addView(pendingSection)
+        .addView(completeSection)
       body
         .append(container)
         .append(footer)
+
+      const onDraw = () => requestAnimationFrame(() => {
+        if (false === input.isFocused && false === isMouseDown) {
+          input.focus()
+        }
+        onDraw()
+      })
+      onDraw()
 
       console.log(
         '%c>>>>%c Log indicate%c developing.',
