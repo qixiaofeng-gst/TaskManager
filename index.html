@@ -504,6 +504,9 @@
 
     const footer = new Footer()
     const input = new Input()
+    const output = new Text()
+      .setHeight('1rem')
+      .setLineHeight(1)
     const wipSection = new Section()
       .setTitle('进行中')
       .enableClear(false)
@@ -519,12 +522,15 @@
       .beforeAddTask(task => task.setPrefixColor(Colors.gray))
     const container = new Container()
       .addView(input)
+      .addView(output)
       .addView(wipSection)
       .addView(pendingSection)
       .addView(completeSection)
     body
       .append(container)
       .append(footer)
+
+    const log = msg => output.setContent(msg || '')
 
     const onDraw = () => requestAnimationFrame(() => {
       if (false === input.isFocused && false === isMouseDown) {
@@ -800,7 +806,6 @@
 
     const input_box = s('.new_task') // New Task View.
     const output_box = s('.output_box')
-    const log = msg => output_box.innerHTML = msg || ''
     const trait_login = 'email:'
     const credentials = {}
     const clear_input = () => (input_box.value = '')
