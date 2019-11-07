@@ -226,6 +226,7 @@
     class SectionTitle extends View {
       _text = new Text()
       _removeButton = new IconButton()
+      _onRemoveClick = () => undefined
 
       constructor() {
         super()
@@ -243,10 +244,17 @@
           .addView(this._removeButton
             .setBGImage('css/destroy.png')
             .setDisplay(Displays.none))
+
+        this._removeButton.onclick = () => this._onRemoveClick()
       }
 
       setText(strValue) {
         this._text.setContent(strValue)
+        return this
+      }
+
+      onRemoveClick(action) {
+        this._onRemoveClick = action
         return this
       }
 
@@ -269,9 +277,10 @@
       _onDragStart = _ => undefined
       _onDragEnd = () => undefined
       _onDrop = _ => undefined
+      _onDoubleClick = _ => undefined
       _beforeAddTask = _ => undefined
       _treatFirst = _ => undefined
-      _afterAddTask = () => undefined
+      _onTasksUpdate = () => undefined
 
       constructor() {
         super()
@@ -285,10 +294,46 @@
         this.ondragstart = e => this._onDragStart(e.target)
         this.ondrop = e => this._onDrop(e.target)
         this.ondragend = _ => this._onDragEnd()
+        this.ondblclick = e => this._onDoubleClick(e.target)
+        this._title.onRemoveClick(() => {
+          const removeTask = () => {
+            if (0 === this._tasks.length) {
+              this._onTasksUpdate()
+              this.addView(this._placeholder)
+              return
+            }
+            const task = this._tasks.splice(0, 1)[0]
+            this.cutView(task)
+            task
+              .markCleared()
+              .saveData(() => removeTask())
+          }
+          removeTask()
+        })
       }
 
       get taskCount() {
         return this._tasks.length
+      }
+
+      moveTask(toMove, anchorTask) {
+        this.insertBefore(toMove, anchorTask)
+        // TODO add logic to reserve order after moved
+      }
+
+      getTaskByView(view) {
+        if (this === view) {
+          return undefined
+        }
+        if (view instanceof Task) {
+          return view
+        } else {
+          if (view.parentElement) {
+            return this.getTaskByView(view.parentElement)
+          } else {
+            return undefined
+          }
+        }
       }
 
       setTitle(strValue) {
@@ -316,13 +361,18 @@
         return this
       }
 
+      onDoubleClick(action) {
+        this._onDoubleClick = action
+        return this
+      }
+
       beforeAddTask(action) {
         this._beforeAddTask = action
         return this
       }
 
-      afterAddTask(action) {
-        this._afterAddTask = action
+      onTasksUpdate(action) {
+        this._onTasksUpdate = action
         return this
       }
 
@@ -337,26 +387,15 @@
           this._treatFirst(task)
         }
         this._beforeAddTask(task)
+        task.popFromOldParent()
         this._tasks.push(task)
+        task.onPopFromSection(() => {
+          const index = this._tasks.indexOf(task)
+          index >= 0 && this._tasks.splice(index, 1)
+          0 === this._tasks.length && this.addView(this._placeholder)
+        })
         this.addView(task)
-        this._afterAddTask()
-        return this
-      }
-
-      cutTask(task) {
-        const index = this._tasks.indexOf(task)
-        if (index >= 0) {
-          this._tasks.splice(index, 1)
-          this.cutView(task)
-
-          if (0 === index && this._tasks.length > 0) {
-            this._treatFirst(this._tasks[0])
-          }
-        }
-
-        if (this._tasks.length) {
-          this.addView(this._placeholder)
-        }
+        this._onTasksUpdate()
         return this
       }
     }
@@ -533,6 +572,8 @@
     }
 
     class Task extends View {
+      _onPopFromSection = _ => undefined
+
       _prefixDot = new ColoredDot()
       _text = new Text()
       _data = undefined
@@ -547,15 +588,30 @@
           .addView(this._text)
       }
 
-      saveData() {
-        save_task_data(this._data)
+      popFromOldParent() {
+        this._onPopFromSection()
+        return this
+      }
+
+      onPopFromSection(action) {
+        this._onPopFromSection = action
+        return this
+      }
+
+      markCleared() {
+        this._data.is_cleared = true
+        return this
+      }
+
+      saveData(action = () => undefined) {
+        save_task_data(this._data).then(action)
         return this
       }
 
       setState(strTaskState) {
         this._data.state = strTaskState
         if (false === this._data.is_activated) {
-          return
+          return this
         }
         this._data.timeCost += (Date.now() - this._data.startTime)
         this._data.startTime = 0
@@ -654,7 +710,7 @@
     const
       create_task_data = obj => {
         const self = {
-          _id: false,
+          _id: undefined,
           desc: false,
           state: task_state.in_progress,
           is_activated: false,
@@ -674,17 +730,7 @@
         .setLineHeight(1),
       wipSection = new Section()
         .setTitle('进行中')
-        .enableClear(false)
-        .beforeAddTask(task => task
-          .setPrefixColor(Colors.yellow)
-          .enableDrag(true))
-        .afterAddTask(() => footer.wipCount = wipSection.taskCount)
-        .treatFirst(task => task.setDotAnimation('active_color 1s infinite'))
-        .onDragStart(task => draggingTask = task)
-        .onDrop(targetElement => {
-          console.log(targetElement, '<<<<<<<')
-        })
-        .onDragEnd(() => draggingTask = undefined),
+        .enableClear(false),
       input = new Input()
         .onTextEntered(text => wipSection
           .addTask(new Task()
@@ -692,21 +738,10 @@
             .saveData())),
       completeSection = new Section()
         .setTitle('已完成')
-        .enableClear()
-        .beforeAddTask(task => task
-          .setPrefixColor(Colors.green)
-          .enableDrag(false))
-        .afterAddTask(() => footer.completeCount = completeSection.taskCount)
-        .onDrop(_ => {
-          draggingTask && completeSection.addTask(draggingTask)
-        }),
+        .enableClear(),
       pendingSection = new Section()
         .setTitle('已挂起')
-        .enableClear()
-        .beforeAddTask(task => task
-          .setPrefixColor(Colors.gray)
-          .enableDrag(false))
-        .afterAddTask(() => footer.pendingCount = pendingSection.taskCount),
+        .enableClear(),
       container = new Container()
         .addView(input)
         .addView(output)
@@ -714,12 +749,63 @@
         .addView(pendingSection)
         .addView(completeSection),
       log = msg => output.setContent(msg || ''),
-      onDraw = () => requestAnimationFrame(() => {
+      on_draw = () => requestAnimationFrame(() => {
         if (false === input.isFocused && false === isMouseDown) {
           input.focus()
         }
-        onDraw()
+        on_draw()
       }),
+      update_footer = () => {
+        footer.wipCount = wipSection.taskCount
+        footer.pendingCount = pendingSection.taskCount
+        footer.completeCount = completeSection.taskCount
+      },
+      back_to_wip = section => {
+        return (targetElement => {
+          const targetTask = section.getTaskByView(targetElement)
+          if (targetTask) {
+            wipSection.addTask(targetTask
+              .setState(task_state.in_progress)
+              .saveData())
+          }
+        })
+      },
+      prepare_views = () => {
+        pendingSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.gray)
+            .enableDrag(false))
+          .onTasksUpdate(update_footer)
+          .onDrop(_ => {
+            draggingTask && pendingSection.addTask(draggingTask
+              .setState(task_state.pending)
+              .saveData())
+          })
+          .onDoubleClick(back_to_wip(pendingSection))
+        completeSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.green)
+            .enableDrag(false))
+          .onTasksUpdate(update_footer)
+          .onDrop(_ => {
+            draggingTask && completeSection.addTask(draggingTask
+              .setState(task_state.completed)
+              .saveData())
+          })
+          .onDoubleClick(back_to_wip(completeSection))
+        wipSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.yellow)
+            .enableDrag(true))
+          .onTasksUpdate(update_footer)
+          .treatFirst(task => task.setDotAnimation('active_color 1s infinite'))
+          .onDragStart(task => draggingTask = task)
+          .onDrop(targetElement => {
+            const targetTask = wipSection.getTaskByView(targetElement)
+            targetTask && draggingTask && wipSection.moveTask(draggingTask, targetTask)
+          })
+          .onDragEnd(() => draggingTask = undefined)
+      },
       one_moment = 20,
       one_second = 50 * one_moment,
       one_minute = 60 * one_second,
@@ -780,15 +866,16 @@
         ).catch(err => rej(err))
       }),
       list_task = () => post('task/list'),
-      save_task_data = task => post('task', task).then(({success, _id}) => {
-        if (success) {
-          task._id = _id
-        } else {
-          log('任务保存失败，请咨询服务器管理员')
-        }
-      }).catch(error => {
-        log('任务保存失败', error)
-      }),
+      save_task_data = task => post('task', task)
+        .then(({success, _id}) => {
+          if (success) {
+            task._id = _id
+          } else {
+            log('任务保存失败，请咨询服务器管理员')
+          }
+        }).catch(error => {
+          log('任务保存失败', error)
+        }),
       trait_login = 'email:',
       credentials = {}
     /////// Globals initialized. ///////
@@ -802,7 +889,8 @@
     body
       .append(container)
       .append(footer)
-    onDraw()
+    prepare_views()
+    on_draw()
 
     list_task().then(result => {
       const {
@@ -862,7 +950,6 @@
       margin: 0;
       font-family: Microsoft YaHei, monospace;
       user-select: none;
-      /*pointer-events: none;*/
     }
 
     body {
@@ -870,6 +957,7 @@
       margin: 0 auto;
       background: #eeeeee;
       color: #333333;
+      /*pointer-events: none;*/
     }
   </style>
 </head>
