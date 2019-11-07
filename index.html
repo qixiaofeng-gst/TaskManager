@@ -317,8 +317,41 @@
       }
 
       moveTask(toMove, anchorTask) {
+        if (toMove === anchorTask) {
+          return
+        }
+        const invalidIndex = -1
+        let
+          toMoveIndex = invalidIndex,
+          anchorIndex = invalidIndex
+        for (let index = 0; index < this.taskCount; ++index) {
+          if (toMoveIndex > invalidIndex && anchorIndex > invalidIndex) {
+            break
+          }
+          if (toMove === this._tasks[index]) {
+            toMoveIndex = index
+            continue
+          }
+          if (anchorTask === this._tasks[index]) {
+            anchorIndex = index
+          }
+        }
+        if ((anchorIndex - 1) === toMoveIndex) {
+          return
+        }
         this.insertBefore(toMove, anchorTask)
-        // TODO add logic to reserve order after moved
+        this._tasks.splice(toMoveIndex, 1)
+        if (toMoveIndex > anchorIndex) {
+          this._tasks.splice(anchorIndex, 0, toMove)
+        } else {
+          this._tasks.splice(anchorIndex - 1, 0, toMove)
+        }
+        const saveTasks = (start, end) => {
+          if (start <= end) {
+            this._tasks[start].setSN(start).saveData(() => saveTasks(start + 1, end))
+          }
+        }
+        saveTasks(0, this.taskCount - 1)
       }
 
       getTaskByView(view) {
@@ -584,6 +617,8 @@
           .setDisplay(Displays.grid)
           .setAlignItems(Aligns.center)
           .setGridColumn('1rem 1fr 1rem', '.5rem')
+          .setBorderBottom(`1px solid ${Colors.border_lighter}`)
+          .setPadding('.25rem 0')
           .addView(this._prefixDot)
           .addView(this._text)
       }
@@ -605,6 +640,11 @@
 
       saveData(action = () => undefined) {
         save_task_data(this._data).then(action)
+        return this
+      }
+
+      setSN(numValue) {
+        this._data.sn = numValue
         return this
       }
 
@@ -766,6 +806,7 @@
           if (targetTask) {
             wipSection.addTask(targetTask
               .setState(task_state.in_progress)
+              .setSN(wipSection.taskCount)
               .saveData())
           }
         })
@@ -779,6 +820,7 @@
           .onDrop(_ => {
             draggingTask && pendingSection.addTask(draggingTask
               .setState(task_state.pending)
+              .setSN(pendingSection.taskCount)
               .saveData())
           })
           .onDoubleClick(back_to_wip(pendingSection))
@@ -790,6 +832,7 @@
           .onDrop(_ => {
             draggingTask && completeSection.addTask(draggingTask
               .setState(task_state.completed)
+              .setSN(completeSection.taskCount)
               .saveData())
           })
           .onDoubleClick(back_to_wip(completeSection))
