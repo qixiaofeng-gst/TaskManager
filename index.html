@@ -129,7 +129,10 @@
             desc: str,
           })
         }
-      }
+      },
+      group_name_key = 'current_group_name',
+      save_group_name = name => localStorage.setItem(group_name_key, name),
+      load_group_name = () => (localStorage.getItem(group_name_key) || defaultGroup)
 
     HTMLElement.prototype.batchSetAttributes = function (obj) {
       for (const k in obj) {
@@ -499,6 +502,7 @@
           }
         })
         this.addView(task)
+        // TODO perhaps remove below line, updateFooter could be directly called
         this._onTasksUpdate()
         return this
       }
@@ -1000,13 +1004,19 @@
         const self = this
         switch (task.state) {
           case task_state.completed:
-            self._completeSection.addTask(task)
+            self._completeSection.addTask(task
+              .setSN(self._completeSection.taskCount)
+              .saveData())
             break
           case task_state.in_progress:
-            self._wipSection.addTask(task)
+            self._wipSection.addTask(task
+              .setSN(self._wipSection.taskCount)
+              .saveData())
             break
           default:
-            self._pendingSection.addTask(task)
+            self._pendingSection.addTask(task
+              .setSN(self._pendingSection.taskCount)
+              .saveData())
         }
         return self
       }
@@ -1084,16 +1094,17 @@
       }
 
       createTaskFromText(strEntered) {
-        const task = new Task().setData(create_task_data({desc: strEntered}))
+        const task = new Task()
+          .setData(create_task_data({desc: strEntered}))
         this.addWildTask(task)
       }
 
       showCurrentGroup() {
         if (undefined === this._activeGroup) {
-          this._activeGroup = defaultGroup
+          this._activeGroup = load_group_name()
         }
         const groupCount = Object.keys(this._groups).length
-        groupCount > 0 && this._groups[defaultGroup].show()
+        groupCount > 0 && this._groups[this._activeGroup].show()
       }
 
       _switchToGroup(groupName) {
@@ -1105,6 +1116,7 @@
         }
         if (this._groups.hasOwnProperty(groupName)) {
           this._activeGroup = groupName
+          save_group_name(groupName)
           this._groups[groupName].show()
         }
       }
