@@ -2,6 +2,17 @@
 <html lang="cn">
 <head>
   <script>window.addEventListener('load', () => {
+    let
+      isMouseDown = false,
+      draggingTask = undefined,
+      activatedTask = undefined
+    window.onmousedown = () => {
+      isMouseDown = true
+    }
+    window.onmouseup = () => {
+      isMouseDown = false
+    }
+
     const
       const_proxy_handler = new Proxy({
         get: (target, p, _) => target[p],
@@ -71,10 +82,39 @@
           document.body.append(view)
           return body
         },
-      }, const_proxy_handler)
+      }, const_proxy_handler),
+      one_moment = 20,
+      one_second = 50 * one_moment,
+      one_minute = 60 * one_second,
+      one_hour = 60 * one_minute,
+      one_day = 24 * one_hour,
+      two_digit = num => num < 10 ? `0${num}` : num,
+      time_str = interval => {
+        const day = Math.floor(interval / one_day)
+        const hour = Math.floor((interval % one_day) / one_hour)
+        if (day > 0) {
+          return `${day}d${hour}h`
+        }
+        const minute = Math.floor((interval % one_hour) / one_minute)
+        if (hour > 0) {
+          return `${hour}h${two_digit(minute)}m`
+        }
+        const second = Math.floor((interval % one_minute) / one_second)
+        if (minute > 0) {
+          return `${minute}m${two_digit(second)}s`
+        }
+        const millisecond = interval % one_second
+        const ms = (millisecond < 10 ? `00${millisecond}`
+            : (millisecond < 100 ? `0${millisecond}`
+                : millisecond
+            )
+        )
+        return `${second}s.${ms}`
+      }
 
     HTMLElement.prototype.batchSetAttributes = function (obj) {
       for (const k in obj) {
+        // noinspection JSUnfilteredForInLoop
         this[k] = obj[k]
       }
     }
@@ -279,8 +319,12 @@
       _onDrop = _ => undefined
       _onDoubleClick = _ => undefined
       _beforeAddTask = _ => undefined
-      _treatFirst = _ => undefined
+      _afterEmptyTasks = () => undefined
       _onTasksUpdate = () => undefined
+
+      get taskCount() {
+        return this._tasks.length
+      }
 
       constructor() {
         super()
@@ -312,8 +356,9 @@
         })
       }
 
-      get taskCount() {
-        return this._tasks.length
+      afterEmptyTasks(action) {
+        this._afterEmptyTasks = action
+        return this
       }
 
       moveTask(toMove, anchorTask) {
@@ -330,9 +375,7 @@
           }
           if (toMove === this._tasks[index]) {
             toMoveIndex = index
-            continue
-          }
-          if (anchorTask === this._tasks[index]) {
+          } else if (anchorTask === this._tasks[index]) {
             anchorIndex = index
           }
         }
@@ -341,17 +384,17 @@
         }
         this.insertBefore(toMove, anchorTask)
         this._tasks.splice(toMoveIndex, 1)
+        let
+          startIndex = toMoveIndex,
+          endIndex = toMoveIndex
         if (toMoveIndex > anchorIndex) {
+          startIndex = anchorIndex
           this._tasks.splice(anchorIndex, 0, toMove)
         } else {
+          endIndex = anchorIndex
           this._tasks.splice(anchorIndex - 1, 0, toMove)
         }
-        const saveTasks = (start, end) => {
-          if (start <= end) {
-            this._tasks[start].setSN(start).saveData(() => saveTasks(start + 1, end))
-          }
-        }
-        saveTasks(0, this.taskCount - 1)
+        this._saveTask(startIndex, endIndex)
       }
 
       getTaskByView(view) {
@@ -409,27 +452,38 @@
         return this
       }
 
-      treatFirst(action) {
-        this._treatFirst = action
-        return this
-      }
-
       addTask(task) {
         if (0 === this._tasks.length) {
           this.cutView(this._placeholder)
-          this._treatFirst(task)
+          task.setState()
         }
         this._beforeAddTask(task)
         task.popFromOldParent()
         this._tasks.push(task)
-        task.onPopFromSection(() => {
+        task.onPopFromOldParent(() => {
           const index = this._tasks.indexOf(task)
           index >= 0 && this._tasks.splice(index, 1)
-          0 === this._tasks.length && this.addView(this._placeholder)
+          if (0 === this._tasks.length) {
+            this.addView(this._placeholder)
+            this._afterEmptyTasks()
+          }
         })
         this.addView(task)
         this._onTasksUpdate()
         return this
+      }
+
+      saveTasks() {
+        this._saveTask(0, this._tasks.length - 1)
+      }
+
+      _saveTask(start, end) {
+        if (start <= end) {
+          this._tasks[start]
+            .setSN(start)
+            .setState(task_state.in_progress)
+            .saveData(() => this._saveTask(start + 1, end))
+        }
       }
     }
 
@@ -605,31 +659,37 @@
     }
 
     class Task extends View {
-      _onPopFromSection = _ => undefined
+      _onPopFromOldParent = _ => undefined
 
       _prefixDot = new ColoredDot()
       _text = new Text()
+      _timeCost = new Text()
       _data = undefined
+
+      get isActivated() {
+        return this._data.is_activated
+      }
 
       constructor() {
         super()
         this
           .setDisplay(Displays.grid)
           .setAlignItems(Aligns.center)
-          .setGridColumn('1rem 1fr 1rem', '.5rem')
+          .setGridColumn('1rem 1fr 10rem', '.5rem')
           .setBorderBottom(`1px solid ${Colors.border_lighter}`)
           .setPadding('.25rem 0')
           .addView(this._prefixDot)
           .addView(this._text)
+          .addView(this._timeCost)
       }
 
       popFromOldParent() {
-        this._onPopFromSection()
+        this._onPopFromOldParent()
         return this
       }
 
-      onPopFromSection(action) {
-        this._onPopFromSection = action
+      onPopFromOldParent(action) {
+        this._onPopFromOldParent = action
         return this
       }
 
@@ -649,19 +709,41 @@
       }
 
       setState(strTaskState) {
+        strTaskState = strTaskState || this._data.state
         this._data.state = strTaskState
-        if (false === this._data.is_activated) {
-          return this
+        const activate = () => {
+          activatedTask = this
+          this.setDotAnimation(true)
+          if (true === this._data.is_activated) {
+            return
+          }
+          this._data.startTime = Date.now()
+          this._data.is_activated = true
         }
-        this._data.timeCost += (Date.now() - this._data.startTime)
-        this._data.startTime = 0
-        this._data.is_activated = false
+        const deactivate = () => {
+          this.setDotAnimation(false)
+          if (false === this._data.is_activated) {
+            return
+          }
+          this._data.timeCost += (Date.now() - this._data.startTime)
+          this._data.startTime = 0
+          this._data.is_activated = false
+        }
+        if (task_state.in_progress === strTaskState && 0 === this._data.sn) {
+          activate()
+        } else {
+          deactivate()
+        }
         return this
       }
 
-      get timeCost() {
+      updateTimeCost() {
         const increment = this._data.is_activated ? (Date.now() - this._data.startTime) : 0
-        return (this._data.timeCost + increment)
+        const timeCost = this._data.timeCost + increment
+        if (timeCost > 0) {
+          this._timeCost.setContent(time_str(timeCost))
+        }
+        return this
       }
 
       enableDrag(isEnable = true) {
@@ -671,6 +753,7 @@
       setData(taskData) {
         this._data = taskData
         this._text.setContent(this._data.desc)
+        this.updateTimeCost()
         return this
       }
 
@@ -679,8 +762,9 @@
         return this
       }
 
-      setDotAnimation(strValue) {
-        this._prefixDot.setAnimation(strValue)
+      setDotAnimation(isActive = true) {
+        const animation = 'active_color 1s infinite'
+        this._prefixDot.setAnimation(isActive ? animation : 'unset')
         return this
       }
     }
@@ -737,16 +821,6 @@
     customElements.define('base-view', View)
     customElements.define('task-view', Task)
 
-    let
-      isMouseDown = false,
-      draggingTask = undefined
-    window.onmousedown = () => {
-      isMouseDown = true
-    }
-    window.onmouseup = () => {
-      isMouseDown = false
-    }
-
     const
       create_task_data = obj => {
         const self = {
@@ -790,6 +864,7 @@
         .addView(completeSection),
       log = msg => output.setContent(msg || ''),
       on_draw = () => requestAnimationFrame(() => {
+        activatedTask && activatedTask.updateTimeCost()
         if (false === input.isFocused && false === isMouseDown) {
           input.focus()
         }
@@ -805,8 +880,8 @@
           const targetTask = section.getTaskByView(targetElement)
           if (targetTask) {
             wipSection.addTask(targetTask
-              .setState(task_state.in_progress)
               .setSN(wipSection.taskCount)
+              .setState(task_state.in_progress)
               .saveData())
           }
         })
@@ -819,8 +894,8 @@
           .onTasksUpdate(update_footer)
           .onDrop(_ => {
             draggingTask && pendingSection.addTask(draggingTask
-              .setState(task_state.pending)
               .setSN(pendingSection.taskCount)
+              .setState(task_state.pending)
               .saveData())
           })
           .onDoubleClick(back_to_wip(pendingSection))
@@ -831,8 +906,8 @@
           .onTasksUpdate(update_footer)
           .onDrop(_ => {
             draggingTask && completeSection.addTask(draggingTask
-              .setState(task_state.completed)
               .setSN(completeSection.taskCount)
+              .setState(task_state.completed)
               .saveData())
           })
           .onDoubleClick(back_to_wip(completeSection))
@@ -841,32 +916,26 @@
             .setPrefixColor(Colors.yellow)
             .enableDrag(true))
           .onTasksUpdate(update_footer)
-          .treatFirst(task => task.setDotAnimation('active_color 1s infinite'))
           .onDragStart(task => draggingTask = task)
           .onDrop(targetElement => {
             const targetTask = wipSection.getTaskByView(targetElement)
             targetTask && draggingTask && wipSection.moveTask(draggingTask, targetTask)
           })
           .onDragEnd(() => draggingTask = undefined)
-      },
-      one_moment = 20,
-      one_second = 50 * one_moment,
-      one_minute = 60 * one_second,
-      one_hour = 60 * one_minute,
-      one_day = 24 * one_hour,
-      two_digit = num => (num < 10 ? `0${num}` : num),
-      time_str = interval => {
-        const day = Math.floor(interval / one_day)
-        const hour = Math.floor((interval % one_day) / one_hour)
-        const minute = Math.floor((interval % one_hour) / one_minute)
-        const second = Math.floor((interval % one_minute) / one_second)
-        const millisecond = interval % one_second
-        const ms = (millisecond < 10 ? `00${millisecond}`
-            : (millisecond < 100 ? `0${millisecond}`
-                : millisecond
-            )
-        )
-        return `${day}D${two_digit(hour)}:${two_digit(minute)}:${two_digit(second)}.${ms}`
+          .onDoubleClick(targetElement => {
+            const task = wipSection.getTaskByView(targetElement)
+            if (task.isActivated) {
+              completeSection.addTask(task
+                .setSN(completeSection.taskCount)
+                .setState(task_state.completed)
+                .saveData(() => wipSection.saveTasks()))
+            } else {
+              wipSection.moveTask(task, activatedTask)
+            }
+          })
+          .afterEmptyTasks(() => {
+            activatedTask = undefined
+          })
       },
       url_base = 'https://www.gsegment.com/tms',
       msg_login = 'login please',
