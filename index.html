@@ -110,6 +110,24 @@
             )
         )
         return `${second}s.${ms}`
+      },
+      colonCN = '：',
+      colonEN = ':',
+      defaultGroup = 'default',
+      preventFirstCNColon = str => str.replace(colonCN, colonEN),
+      parseDesc = str => {
+        const index = str.indexOf(colonEN)
+        if (index >= 0) {
+          return ({
+            group: str.substr(0, index),
+            desc: str.substr(index + 1, str.length),
+          })
+        } else {
+          return ({
+            group: defaultGroup,
+            desc: str,
+          })
+        }
       }
 
     HTMLElement.prototype.batchSetAttributes = function (obj) {
@@ -336,7 +354,10 @@
 
         this.ondragover = e => e.preventDefault() // enable drop with this call
         this.ondragstart = e => this._onDragStart(e.target)
-        this.ondrop = e => this._onDrop(e.target)
+        this.ondrop = e => {
+          isMouseDown = false
+          this._onDrop(e.target)
+        }
         this.ondragend = _ => this._onDragEnd()
         this.ondblclick = e => this._onDoubleClick(e.target)
         this._title.onRemoveClick(() => {
@@ -587,6 +608,7 @@
     class Input extends View {
       _onTextEntered = _ => undefined
 
+      _editingTask = undefined
       _view = document.createElement('input')
       _isFocused = false
 
@@ -611,8 +633,17 @@
           this._isFocused = false
         }
 
+        this._view.ondragover = e => e.preventDefault()
+        this._view.ondrop = () => {
+          isMouseDown = false
+          if (draggingTask) {
+            this._editingTask = draggingTask
+            this._view.value = draggingTask.getDesc()
+          }
+        }
+
         this._view.onkeypress = e => {
-          const entered = this._view.value
+          const entered = preventFirstCNColon(this._view.value)
           if (e.key === KeyNames.enter && entered) {
             this._view.value = ''
             if (this._view.checkAttribute(InputTypes.KEY, InputTypes.text)) {
@@ -623,7 +654,14 @@
                   type: InputTypes.password,
                 })
               } else {
-                this._onTextEntered(entered)
+                if (this._editingTask) {
+                  this._editingTask
+                    .setDesc(entered)
+                    .saveData()
+                  this._editingTask = undefined
+                } else {
+                  this._onTextEntered(entered)
+                }
               }
             } else {
               this._view.batchSetAttributes({
@@ -757,6 +795,16 @@
         return this
       }
 
+      getDesc() {
+        return this._data.desc
+      }
+
+      setDesc(desc) {
+        this._data.desc = desc
+        this._text.setContent(desc)
+        return this
+      }
+
       setPrefixColor(strValue) {
         this._prefixDot.setBGColor(strValue)
         return this
@@ -820,6 +868,34 @@
     customElements.define('counter-button', CounterButton)
     customElements.define('base-view', View)
     customElements.define('task-view', Task)
+
+    class TaskGroup {
+      _wip = []
+      _pending = []
+      _complete = []
+
+      constructor() {
+      }
+    }
+
+    class TaskGroupManager {
+      _groups = {}
+      _activeGroup = defaultGroup
+
+      constructor() {
+      }
+
+      addTask(task) {
+
+      }
+
+      switchGroup(groupName) {
+        if (groupName === this._activeGroup) {
+          return
+        }
+        // TODO implement
+      }
+    }
 
     const
       create_task_data = obj => {
@@ -893,6 +969,7 @@
             .enableDrag(false))
           .onTasksUpdate(update_footer)
           .onDrop(_ => {
+            input.focus()
             draggingTask && pendingSection.addTask(draggingTask
               .setSN(pendingSection.taskCount)
               .setState(task_state.pending)
