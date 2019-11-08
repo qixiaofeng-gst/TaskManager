@@ -1,20 +1,187 @@
 ﻿<!DOCTYPE html>
 <html lang="cn">
 <head>
-  <script>
-    class View extends HTMLElement {
-      constructor() {
-        super()
-        console.log('Hello View.')
-        this
-          .setBG('black')
-          .setWidth(100)
-          .setHeight(100)
-          .setDisplay('block')
+  <script>window.addEventListener('load', () => {
+    let
+      isMouseDown = false,
+      draggingTask = undefined,
+      activatedTask = undefined
+    window.onmousedown = () => {
+      isMouseDown = true
+    }
+    window.onmouseup = () => {
+      isMouseDown = false
+    }
+
+    const
+      const_proxy_handler = new Proxy({
+        get: (target, p, _) => target[p],
+        set: () => {
+          console.error('Constant could not be set')
+          return false
+        },
+      }, {
+        get: (target, p, _) => target[p],
+        set: () => false,
+      }),
+      Colors = new Proxy({
+        KEY: 'style.backgroundColor|color',
+        text: '#555555',
+        footer_bg: '#f4fce8',
+        border_lighter: '#ededed',
+        white: '#ffffff',
+        green: '#00bb00',
+        gray: '#dddddd',
+        yellow: '#ddcc00',
+        shadow_lighter: 'rgba(0, 0, 0, .2)',
+        button_bg: 'rgba(0, 0, 0, .1)',
+      }, const_proxy_handler),
+      Displays = new Proxy({
+        KEY: 'style.display',
+        flex: 'flex',
+        block: 'block',
+        grid: 'grid',
+        none: 'none',
+      }, const_proxy_handler),
+      Repeats = new Proxy({
+        KEY: 'style.backgroundRepeat',
+        no_repeat: 'no-repeat',
+      }, const_proxy_handler),
+      Justifies = new Proxy({
+        KEY: 'style.justifyContent',
+        space_between: 'space-between',
+      }, const_proxy_handler),
+      Aligns = new Proxy({
+        KEY: 'style.alignItems',
+        center: 'center',
+      }, const_proxy_handler),
+      Cursors = new Proxy({
+        KEY: 'style.cursor',
+        pointer: 'pointer',
+      }, const_proxy_handler),
+      FontWeights = new Proxy({
+        KEY: 'style.fontWeight',
+        bold: 'bold',
+      }, const_proxy_handler),
+      InputTypes = new Proxy({
+        KEY: 'type',
+        text: 'text',
+        password: 'password',
+      }, const_proxy_handler),
+      KeyNames = new Proxy({
+        KEY: 'key',
+        enter: 'Enter',
+      }, const_proxy_handler),
+      task_state = new Proxy({
+        in_progress: 'wip',
+        completed: 'done',
+        pending: 'hung',
+      }, const_proxy_handler),
+      body = new Proxy({
+        append: view => {
+          document.body.append(view)
+          return body
+        },
+      }, const_proxy_handler),
+      one_moment = 20,
+      one_second = 50 * one_moment,
+      one_minute = 60 * one_second,
+      one_hour = 60 * one_minute,
+      one_day = 24 * one_hour,
+      two_digit = num => num < 10 ? `0${num}` : num,
+      time_str = interval => {
+        const day = Math.floor(interval / one_day)
+        const hour = Math.floor((interval % one_day) / one_hour)
+        if (day > 0) {
+          return `${day}d${hour}h`
+        }
+        const minute = Math.floor((interval % one_hour) / one_minute)
+        if (hour > 0) {
+          return `${hour}h${two_digit(minute)}m`
+        }
+        const second = Math.floor((interval % one_minute) / one_second)
+        if (minute > 0) {
+          return `${minute}m${two_digit(second)}s`
+        }
+        const millisecond = interval % one_second
+        const ms = (millisecond < 10 ? `00${millisecond}`
+            : (millisecond < 100 ? `0${millisecond}`
+                : millisecond
+            )
+        )
+        return `${second}s.${ms}`
       }
 
-      setBG(value) {
+    HTMLElement.prototype.batchSetAttributes = function (obj) {
+      for (const k in obj) {
+        // noinspection JSUnfilteredForInLoop
+        this[k] = obj[k]
+      }
+    }
+
+    HTMLElement.prototype.checkAttribute = function (strKey, anyValue) {
+      return this[strKey] === anyValue
+    }
+
+    class View extends HTMLElement {
+      addView(newChild) {
+        super.appendChild(newChild)
+        return this
+      }
+
+      cutView(oldChild) {
+        super.removeChild(oldChild)
+        return this
+      }
+
+      setGridColumn(strTemplate, strGap) {
+        this.style.gridColumnGap = strGap
+        this.style.gridTemplateColumns = strTemplate
+        return this
+      }
+
+      setAnimation(strValue) {
+        this.style.animation = strValue
+        return this
+      }
+
+      setWidth(strValue) {
+        this.style.width = strValue
+        return this
+      }
+
+      setHeight(strValue) {
+        this.style.height = strValue
+        return this
+      }
+
+      setFontWeight(strValue) {
+        this.style.fontWeight = strValue
+        return this
+      }
+
+      setBGColor(value) {
         this.style.backgroundColor = value
+        return this
+      }
+
+      setBGImage(strValue) {
+        this.style.backgroundImage = `url(${strValue})`
+        return this
+      }
+
+      setBGPosition(strValue) {
+        this.style.backgroundPosition = strValue
+        return this
+      }
+
+      setBGSize(strValue) {
+        this.style.backgroundSize = strValue
+        return this
+      }
+
+      setBGRepeat(strValue) {
+        this.style.backgroundRepeat = strValue
         return this
       }
 
@@ -23,140 +190,756 @@
         return this
       }
 
-      setWidth(value) {
-        this.style.width = `${value}px`
+      setColor(value) {
+        this.style.color = value
         return this
       }
 
-      setHeight(value) {
-        this.style.height = `${value}px`
+      setPadding(value) {
+        this.style.padding = value
+        return this
+      }
+
+      setMargin(strValue) {
+        this.style.margin = strValue
+        return this
+      }
+
+      setShadow(value) {
+        this.style.boxShadow = value
+        return this
+      }
+
+      setBorderTop(value) {
+        this.style.borderTop = value
+        return this
+      }
+
+      setBorderBottom(strValue) {
+        this.style.borderBottom = strValue
+        return this
+      }
+
+      setJustifyContent(value) {
+        this.style.justifyContent = value
+        return this
+      }
+
+      setAlignItems(value) {
+        this.style.alignItems = value
+        return this
+      }
+
+      setFontSize(value) {
+        this.style.fontSize = `${value}rem`
+        return this
+      }
+
+      setLineHeight(value) {
+        this.style.lineHeight = `${value}rem`
+        return this
+      }
+
+      setRadius(strValue) {
+        this.style.borderRadius = strValue
+        return this
+      }
+
+      setCursor(value) {
+        this.style.cursor = value
+        return this
+      }
+
+      setContent(strValue) {
+        this.innerHTML = strValue
+        return this
+      }
+    }
+
+    class Text extends View {
+      constructor() {
+        super()
+        this.setDisplay(Displays.block)
+      }
+    }
+
+    class SectionTitle extends View {
+      _text = new Text()
+      _removeButton = new IconButton()
+      _onRemoveClick = () => undefined
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.flex)
+          .setJustifyContent(Justifies.space_between)
+          .setColor(Colors.text)
+          .setFontSize(1)
+          .setLineHeight(1)
+          .setPadding('0 0 .4rem 0')
+          .setFontWeight(FontWeights.bold)
+          .setBorderBottom(`2px solid ${Colors.border_lighter}`)
+          .setMargin('2rem 0 0 0')
+          .addView(this._text)
+          .addView(this._removeButton
+            .setBGImage('css/destroy.png')
+            .setDisplay(Displays.none))
+
+        this._removeButton.onclick = () => this._onRemoveClick()
+      }
+
+      setText(strValue) {
+        this._text.setContent(strValue)
+        return this
+      }
+
+      onRemoveClick(action) {
+        this._onRemoveClick = action
+        return this
+      }
+
+      enableRemove(isEnable = true) {
+        if (isEnable) {
+          this.onmouseenter = () => this._removeButton.setDisplay(Displays.block)
+          this.onmouseleave = () => this._removeButton.setDisplay(Displays.none)
+        } else {
+          this.onmouseenter = undefined
+          this.onmouseleave = undefined
+        }
+        return this
+      }
+    }
+
+    class Section extends View {
+      _tasks = []
+      _placeholder = new Text()
+      _title = new SectionTitle()
+      _onDragStart = _ => undefined
+      _onDragEnd = () => undefined
+      _onDrop = _ => undefined
+      _onDoubleClick = _ => undefined
+      _beforeAddTask = _ => undefined
+      _afterEmptyTasks = () => undefined
+      _onTasksUpdate = () => undefined
+
+      get taskCount() {
+        return this._tasks.length
+      }
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .addView(this._title)
+          .addView(this._placeholder
+            .setContent('无'))
+
+        this.ondragover = e => e.preventDefault() // enable drop with this call
+        this.ondragstart = e => this._onDragStart(e.target)
+        this.ondrop = e => this._onDrop(e.target)
+        this.ondragend = _ => this._onDragEnd()
+        this.ondblclick = e => this._onDoubleClick(e.target)
+        this._title.onRemoveClick(() => {
+          const removeTask = () => {
+            if (0 === this._tasks.length) {
+              this._onTasksUpdate()
+              this.addView(this._placeholder)
+              return
+            }
+            const task = this._tasks.splice(0, 1)[0]
+            this.cutView(task)
+            task
+              .markCleared()
+              .saveData(() => removeTask())
+          }
+          removeTask()
+        })
+      }
+
+      afterEmptyTasks(action) {
+        this._afterEmptyTasks = action
+        return this
+      }
+
+      moveTask(toMove, anchorTask) {
+        if (toMove === anchorTask) {
+          return
+        }
+        const invalidIndex = -1
+        let
+          toMoveIndex = invalidIndex,
+          anchorIndex = invalidIndex
+        for (let index = 0; index < this.taskCount; ++index) {
+          if (toMoveIndex > invalidIndex && anchorIndex > invalidIndex) {
+            break
+          }
+          if (toMove === this._tasks[index]) {
+            toMoveIndex = index
+          } else if (anchorTask === this._tasks[index]) {
+            anchorIndex = index
+          }
+        }
+        if ((anchorIndex - 1) === toMoveIndex) {
+          return
+        }
+        this.insertBefore(toMove, anchorTask)
+        this._tasks.splice(toMoveIndex, 1)
+        let
+          startIndex = toMoveIndex,
+          endIndex = toMoveIndex
+        if (toMoveIndex > anchorIndex) {
+          startIndex = anchorIndex
+          this._tasks.splice(anchorIndex, 0, toMove)
+        } else {
+          endIndex = anchorIndex
+          this._tasks.splice(anchorIndex - 1, 0, toMove)
+        }
+        this._saveTask(startIndex, endIndex)
+      }
+
+      getTaskByView(view) {
+        if (this === view) {
+          return undefined
+        }
+        if (view instanceof Task) {
+          return view
+        } else {
+          if (view.parentElement) {
+            return this.getTaskByView(view.parentElement)
+          } else {
+            return undefined
+          }
+        }
+      }
+
+      setTitle(strValue) {
+        this._title.setText(strValue)
+        return this
+      }
+
+      enableClear(isEnable = true) {
+        this._title.enableRemove(isEnable)
+        return this
+      }
+
+      onDragStart(action) {
+        this._onDragStart = action
+        return this
+      }
+
+      onDragEnd(action) {
+        this._onDragEnd = action
+        return this
+      }
+
+      onDrop(action) {
+        this._onDrop = action
+        return this
+      }
+
+      onDoubleClick(action) {
+        this._onDoubleClick = action
+        return this
+      }
+
+      beforeAddTask(action) {
+        this._beforeAddTask = action
+        return this
+      }
+
+      onTasksUpdate(action) {
+        this._onTasksUpdate = action
+        return this
+      }
+
+      addTask(task) {
+        if (0 === this._tasks.length) {
+          this.cutView(this._placeholder)
+          task.setState()
+        }
+        this._beforeAddTask(task)
+        task.popFromOldParent()
+        this._tasks.push(task)
+        task.onPopFromOldParent(() => {
+          const index = this._tasks.indexOf(task)
+          index >= 0 && this._tasks.splice(index, 1)
+          if (0 === this._tasks.length) {
+            this.addView(this._placeholder)
+            this._afterEmptyTasks()
+          }
+        })
+        this.addView(task)
+        this._onTasksUpdate()
+        return this
+      }
+
+      saveTasks() {
+        this._saveTask(0, this._tasks.length - 1)
+      }
+
+      _saveTask(start, end) {
+        if (start <= end) {
+          this._tasks[start]
+            .setSN(start)
+            .setState(task_state.in_progress)
+            .saveData(() => this._saveTask(start + 1, end))
+        }
+      }
+    }
+
+    class Counter extends View {
+      _generateContent = count => `count: ${count}`
+
+      constructor() {
+        super()
+      }
+
+      setContentGenerator(action) {
+        this._generateContent = action
+        return this
+      }
+
+      setCount(value) {
+        return this.setContent(this._generateContent(value))
+      }
+    }
+
+    class CounterButton extends Counter {
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .setFontSize(.6)
+          .setPadding('0 1rem')
+          .setBGColor(Colors.button_bg)
+          .setLineHeight(1.2)
+          .setRadius('.6rem')
+          .setShadow(`0 -1px 0 0 ${Colors.shadow_lighter}`)
+          .setCursor(Cursors.pointer)
+
+        this.onmouseenter = () => {
+          this.setBGColor(Colors.shadow_lighter)
+        }
+
+        this.onmouseout = () => {
+          this.setBGColor(Colors.button_bg)
+        }
+      }
+
+      setCount(value) {
+        if (value > 0) {
+          this.setDisplay(Displays.block)
+        } else {
+          this.setDisplay(Displays.none)
+        }
+        return super.setCount(value)
+      }
+    }
+
+    class Footer extends View {
+      _wipCounter = new Counter()
+      _buttonsContainer = new View()
+      _completeCounter = new CounterButton()
+      _pendingCounter = new CounterButton()
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.flex)
+          .setJustifyContent(Justifies.space_between)
+          .setAlignItems(Aligns.center)
+          .setPadding('1rem')
+          .setFontSize(.8)
+          .setColor(Colors.text)
+          .setBGColor(Colors.footer_bg)
+          .setShadow(`0 2px 6px -1px ${Colors.shadow_lighter}`)
+          .setBorderTop(`1px solid ${Colors.border_lighter}`)
+          .addView(this._wipCounter
+            .setContentGenerator(count => `${count} 项活动任务`)
+            .setCount(0),
+          )
+          .addView(this._buttonsContainer
+            .setDisplay(Displays.flex)
+            .addView(this._completeCounter
+              .setContentGenerator(count => `清除 ${count} 项已完成任务`)
+              .setCount(0),
+            )
+            .addView(this._pendingCounter
+              .setContentGenerator(count => `清除 ${count} 项已挂起任务`)
+              .setCount(0),
+            ),
+          )
+      }
+
+      set wipCount(numValue) {
+        this._wipCounter.setCount(numValue)
+      }
+
+      set pendingCount(numValue) {
+        this._pendingCounter.setCount(numValue)
+      }
+
+      set completeCount(numValue) {
+        this._completeCounter.setCount(numValue)
+      }
+    }
+
+    class Input extends View {
+      _onTextEntered = _ => undefined
+
+      _view = document.createElement('input')
+      _isFocused = false
+
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .setMargin('1rem 0 0 0')
+          .addView(this._view)
+        this._view.style.fontSize = '1rem'
+        this._view.style.padding = '.3rem'
+        this._view.style.boxSizing = 'border-box'
+        this._view.style.width = '100%'
+        this._view.placeholder = '请输入任务'
+        this._view.type = InputTypes.text
+
+        this._view.onfocus = () => {
+          this._isFocused = true
+        }
+
+        this._view.onblur = () => {
+          this._isFocused = false
+        }
+
+        this._view.onkeypress = e => {
+          const entered = this._view.value
+          if (e.key === KeyNames.enter && entered) {
+            this._view.value = ''
+            if (this._view.checkAttribute(InputTypes.KEY, InputTypes.text)) {
+              if (entered.startsWith(trait_login)) {
+                credentials.email = entered.substr(trait_login.length, entered.length)
+                this._view.batchSetAttributes({
+                  placeholder: '输入密码',
+                  type: InputTypes.password,
+                })
+              } else {
+                this._onTextEntered(entered)
+              }
+            } else {
+              this._view.batchSetAttributes({
+                placeholder: '输入新任务',
+                type: InputTypes.text,
+              })
+              login(credentials.email, entered)
+                .then(() => {
+                  location.reload()
+                })
+                .catch(
+                  res => log(`登录失败 : ${res.msg}`),
+                )
+            }
+          } else {
+            log()
+          }
+        }
+      }
+
+      get isFocused() {
+        return this._isFocused
+      }
+
+      focus(options) {
+        this._view.focus(options)
+      }
+
+      onTextEntered(action) {
+        this._onTextEntered = action
         return this
       }
     }
 
     class Task extends View {
+      _onPopFromOldParent = _ => undefined
+
+      _prefixDot = new ColoredDot()
+      _text = new Text()
+      _timeCost = new Text()
+      _data = undefined
+
+      get isActivated() {
+        return this._data.is_activated
+      }
+
       constructor() {
         super()
-        console.log('Hello Task.')
+        this
+          .setDisplay(Displays.grid)
+          .setAlignItems(Aligns.center)
+          .setGridColumn('1rem 1fr 10rem', '.5rem')
+          .setBorderBottom(`1px solid ${Colors.border_lighter}`)
+          .setPadding('.25rem 0')
+          .addView(this._prefixDot)
+          .addView(this._text)
+          .addView(this._timeCost)
+      }
+
+      popFromOldParent() {
+        this._onPopFromOldParent()
+        return this
+      }
+
+      onPopFromOldParent(action) {
+        this._onPopFromOldParent = action
+        return this
+      }
+
+      markCleared() {
+        this._data.is_cleared = true
+        return this
+      }
+
+      saveData(action = () => undefined) {
+        save_task_data(this._data).then(action)
+        return this
+      }
+
+      setSN(numValue) {
+        this._data.sn = numValue
+        return this
+      }
+
+      setState(strTaskState) {
+        strTaskState = strTaskState || this._data.state
+        this._data.state = strTaskState
+        const activate = () => {
+          activatedTask = this
+          this.setDotAnimation(true)
+          if (true === this._data.is_activated) {
+            return
+          }
+          this._data.startTime = Date.now()
+          this._data.is_activated = true
+        }
+        const deactivate = () => {
+          this.setDotAnimation(false)
+          if (false === this._data.is_activated) {
+            return
+          }
+          this._data.timeCost += (Date.now() - this._data.startTime)
+          this._data.startTime = 0
+          this._data.is_activated = false
+        }
+        if (task_state.in_progress === strTaskState && 0 === this._data.sn) {
+          activate()
+        } else {
+          deactivate()
+        }
+        return this
+      }
+
+      updateTimeCost() {
+        const increment = this._data.is_activated ? (Date.now() - this._data.startTime) : 0
+        const timeCost = this._data.timeCost + increment
+        if (timeCost > 0) {
+          this._timeCost.setContent(time_str(timeCost))
+        }
+        return this
+      }
+
+      enableDrag(isEnable = true) {
+        this.draggable = true === isEnable
+      }
+
+      setData(taskData) {
+        this._data = taskData
+        this._text.setContent(this._data.desc)
+        this.updateTimeCost()
+        return this
+      }
+
+      setPrefixColor(strValue) {
+        this._prefixDot.setBGColor(strValue)
+        return this
+      }
+
+      setDotAnimation(isActive = true) {
+        const animation = 'active_color 1s infinite'
+        this._prefixDot.setAnimation(isActive ? animation : 'unset')
+        return this
       }
     }
 
+    class Container extends View {
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .setBGColor(Colors.white)
+          .setPadding('1rem')
+          .setShadow(`0 2px 6px 0 ${Colors.shadow_lighter}`)
+      }
+    }
+
+    class IconButton extends View {
+      constructor() {
+        super()
+        this
+          .setDisplay(Displays.block)
+          .setBGRepeat(Repeats.no_repeat)
+          .setBGSize('1rem auto')
+          .setBGPosition('0 0')
+          .setWidth('1rem')
+          .setHeight('1rem')
+
+        this.onmouseenter = () => this.setBGPosition('0 -1rem')
+        this.onmouseleave = () => this.setBGPosition('0 0')
+      }
+    }
+
+    class ColoredDot extends View {
+      constructor() {
+        super()
+        this
+          .setWidth('1rem')
+          .setHeight('1rem')
+          .setDisplay(Displays.block)
+          .setRadius('.5rem')
+          .setMargin('0 5px 0 0')
+      }
+    }
+
+    customElements.define('text-view', Text)
+    customElements.define('colored-dot', ColoredDot)
+    customElements.define('icon-button', IconButton)
+    customElements.define('container-view', Container)
+    customElements.define('section-view', Section)
+    customElements.define('section-title', SectionTitle)
+    customElements.define('simple-input', Input)
+    customElements.define('page-footer', Footer)
+    customElements.define('counter-view', Counter)
+    customElements.define('counter-button', CounterButton)
     customElements.define('base-view', View)
     customElements.define('task-view', Task)
 
-    window.addEventListener('load', () => {
-      document.body.append(new View());
-
-      console.log(
-        '%c>>>>%c Log indicate%c developing.',
-        'color: #353535; font-weight: 700;',
-        'color: deepskyblue;',
-        'color: darkgreen;',
-      )
-
-      const one_moment = 20
-      const one_second = 50 * one_moment
-      const one_minute = 60 * one_second
-      const one_hour = 60 * one_minute
-      const one_day = 24 * one_hour
-      const two_digit = num => (num < 10 ? `0${num}` : num)
-      const time_str = interval => {
-        const day = Math.floor(interval / one_day)
-        const hour = Math.floor((interval % one_day) / one_hour)
-        const minute = Math.floor((interval % one_hour) / one_minute)
-        const second = Math.floor((interval % one_minute) / one_second)
-        const millisecond = interval % one_second
-        const ms = (millisecond < 10 ? `00${millisecond}`
-            : (millisecond < 100 ? `0${millisecond}`
-                : millisecond
-            )
-        )
-        return `${day}D${two_digit(hour)}:${two_digit(minute)}:${two_digit(second)}.${ms}`
-      }
-
-      const s = selector => p_dom(document.querySelector(selector))
-      const p_dom = dom => {
-        if (!dom) {
-          return dom
+    const
+      create_task_data = obj => {
+        const self = {
+          _id: undefined,
+          desc: false,
+          state: task_state.in_progress,
+          is_activated: false,
+          is_cleared: false,
+          timeCost: 0,
+          startTime: 0,
+          sn: 0,
         }
-        const classes = () => {
-          const trimmed_class = (dom.className && dom.className.trim()) || ''
-          return trimmed_class.length > 0 ? trimmed_class.split(/\s+/) : []
+        for (const key in self) {
+          obj.hasOwnProperty(key) && (self[key] = obj[key])
         }
-        const worker = {
-          is_proxy: true,
-          view: dom,
-          s: selector => p_dom(dom.querySelector(selector)),
-          set: (key, value) => {
-            dom.setAttribute(key, value)
-            return pd
-          },
-          attr: name => dom.getAttribute(name),
-          append: child => {
-            if (child.is_proxy) {
-              dom.appendChild(child.view)
+        return self
+      },
+      footer = new Footer(),
+      output = new Text()
+        .setHeight('1rem')
+        .setLineHeight(1),
+      wipSection = new Section()
+        .setTitle('进行中')
+        .enableClear(false),
+      input = new Input()
+        .onTextEntered(text => wipSection
+          .addTask(new Task()
+            .setData(create_task_data({desc: text}))
+            .saveData())),
+      completeSection = new Section()
+        .setTitle('已完成')
+        .enableClear(),
+      pendingSection = new Section()
+        .setTitle('已挂起')
+        .enableClear(),
+      container = new Container()
+        .addView(input)
+        .addView(output)
+        .addView(wipSection)
+        .addView(pendingSection)
+        .addView(completeSection),
+      log = msg => output.setContent(msg || ''),
+      on_draw = () => requestAnimationFrame(() => {
+        activatedTask && activatedTask.updateTimeCost()
+        if (false === input.isFocused && false === isMouseDown) {
+          input.focus()
+        }
+        on_draw()
+      }),
+      update_footer = () => {
+        footer.wipCount = wipSection.taskCount
+        footer.pendingCount = pendingSection.taskCount
+        footer.completeCount = completeSection.taskCount
+      },
+      back_to_wip = section => {
+        return (targetElement => {
+          const targetTask = section.getTaskByView(targetElement)
+          if (targetTask) {
+            wipSection.addTask(targetTask
+              .setSN(wipSection.taskCount)
+              .setState(task_state.in_progress)
+              .saveData())
+          }
+        })
+      },
+      prepare_views = () => {
+        pendingSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.gray)
+            .enableDrag(false))
+          .onTasksUpdate(update_footer)
+          .onDrop(_ => {
+            draggingTask && pendingSection.addTask(draggingTask
+              .setSN(pendingSection.taskCount)
+              .setState(task_state.pending)
+              .saveData())
+          })
+          .onDoubleClick(back_to_wip(pendingSection))
+        completeSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.green)
+            .enableDrag(false))
+          .onTasksUpdate(update_footer)
+          .onDrop(_ => {
+            draggingTask && completeSection.addTask(draggingTask
+              .setSN(completeSection.taskCount)
+              .setState(task_state.completed)
+              .saveData())
+          })
+          .onDoubleClick(back_to_wip(completeSection))
+        wipSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.yellow)
+            .enableDrag(true))
+          .onTasksUpdate(update_footer)
+          .onDragStart(task => draggingTask = task)
+          .onDrop(targetElement => {
+            const targetTask = wipSection.getTaskByView(targetElement)
+            targetTask && draggingTask && wipSection.moveTask(draggingTask, targetTask)
+          })
+          .onDragEnd(() => draggingTask = undefined)
+          .onDoubleClick(targetElement => {
+            const task = wipSection.getTaskByView(targetElement)
+            if (task.isActivated) {
+              completeSection.addTask(task
+                .setSN(completeSection.taskCount)
+                .setState(task_state.completed)
+                .saveData(() => wipSection.saveTasks()))
             } else {
-              dom.appendChild(child)
+              wipSection.moveTask(task, activatedTask)
             }
-            return pd
-          },
-          insert: (view, locator) => {
-            view = view.is_proxy ? view.view : view
-            locator = locator.is_proxy ? locator.view : locator
-            dom.insertBefore(view, locator)
-            return pd
-          },
-          add_class: clz => {
-            const old_ones = classes()
-            if (!clz || old_ones.includes(clz)) {
-              return pd
-            }
-            old_ones.push(clz)
-            dom.className = old_ones.join(' ')
-            return pd
-          },
-          remove_class: clz => {
-            if (!clz) {
-              return pd
-            }
-            const old_ones = classes()
-            const idx = old_ones.indexOf(clz)
-            if (idx < 0) {
-              return pd
-            }
-            old_ones.splice(idx, 1)
-            dom.className = old_ones.join(' ')
-            return pd
-          },
-          prev: () => {
-            let prev = dom.previousSibling
-            while (prev instanceof Text) {
-              prev = prev.previousSibling
-            }
-            return p_dom(prev)
-          },
-        }
-
-        const handler = {
-          get: (view, key, _/*receiver*/) => {
-            if (worker.hasOwnProperty(key)) {
-              return worker[key]
-            }
-            return view[key]
-          },
-          set: (view, key, value, _/*receiver*/) => {
-            view[key] = value
-            return value
-          },
-        }
-
-        const pd = new Proxy(dom, handler)
-        return pd
-      }
-
-      const url_base = 'https://www.gsegment.com/tms'
-      const msg_login = 'login please'
-      const post = (url, data) => new Promise((res, rej) => {
+          })
+          .afterEmptyTasks(() => {
+            activatedTask = undefined
+          })
+      },
+      url_base = 'https://www.gsegment.com/tms',
+      msg_login = 'login please',
+      post = (url, data) => new Promise((res, rej) => {
         fetch(
           `${url_base}/${url}?session=${localStorage.tm_session}`,
           {
@@ -181,8 +964,8 @@
         ).catch(
           err => rej({err, msg: 'fetch failed'}),
         )
-      })
-      const login = (email, password) => new Promise((res, rej) => {
+      }),
+      login = (email, password) => new Promise((res, rej) => {
         post('user', {email, password}).then(
           ({success, session}) => {
             if (success) {
@@ -193,507 +976,92 @@
             }
           },
         ).catch(err => rej(err))
-      })
-      const list_task = () => post('task/list')
-      const save_task = task => post('task', task).then(({success, _id}) => {
-        if (success) {
-          task._id = _id
-        } else {
-          log('任务保存失败，请咨询服务器管理员')
-        }
-      }).catch(error => {
-        log('任务保存失败', error)
-      })
-
-      /*const notifi = new Notification('hehe', {
-        body: 'damn',
-        requireInteraction: true,
-        icon: 'css/task_manager.png',
-        image: 'css/task_manager.png'
-      })*/
-
-      const task_state = {
-        in_progress: 'wip',
-        completed: 'done',
-        pending: 'hung',
-      }
-
-      const create_task = obj => {
-        // TODO Perhaps make this the true model
-        // TODO Use proxy to wrap the task
-        // TODO add get 'view' with proxy dom value
-        // TODO add get 'data' with values need persistence
-        // TODO add get 'state' with values only exists at runtime
-        // TODO Use extended HTMLElement instead of css classes
-        const data = {
-          _id: false,
-          desc: false,
-          state: task_state.in_progress,
-          sn: 0,
-          is_activated: false,
-          is_cleared: false,
-          timeCost: 0,
-          startTime: 0,
-        }
-        for (const key in data) {
-          if (false === obj.hasOwnProperty(key)) {
-            continue
-          }
-          data[key] = obj[key]
-        }
-        const self = {}
-        if (obj._id) {
-          self._id = obj._id
-        }
-        self.desc = obj.desc
-        self.is_activated = obj.is_activated || false
-        self.is_cleared = obj.is_cleared || false
-        self.state = obj.state || task_state.in_progress
-        self.timeCost = obj.timeCost || 0  // In milliseconds.
-        self.startTime = obj.startTime || 0  // Invalid value.
-        self.sn = obj.sn || 0 // Only work for active tasks.
-
-        let h_displaying = false
-
-        const clear_displaying = () => {
-          if (false === h_displaying) {
-            return
-          }
-          clearInterval(h_displaying)
-          h_displaying = false
-        }
-
-        const inactivate = state => {
-          self.state = state
-          if (false === self.is_activated) {
-            return
-          }
-          self.timeCost += (Date.now() - self.startTime)
-          self.startTime = 0
-          self.is_activated = false
-          clear_displaying()
-        }
-
-        self.activate = view => {
-          self.state = task_state.in_progress
-          if (self.is_activated) return
-          self.startTime = self.startTime || Date.now()
-          self.is_activated = true
-          h_displaying = setInterval(() => {
-            const display = view.s('.time_cost')
-            display.remove_class('hide')
-            display.innerHTML = time_str(self.get_timecost())
-          }, one_moment)
-        }
-
-        self.inactivate = () => inactivate(task_state.in_progress)
-        self.complete = () => inactivate(task_state.completed)
-        self.pend = () => inactivate(task_state.pending)
-
-        self.get_timecost = () => {
-          const increment = self.is_activated ? (Date.now() - self.startTime) : 0
-          return (self.timeCost + increment)
-        }
-        return self
-      }
-
-      const task_view_template = s('.in_progress_task').innerHTML
-      const done_view_template = s('.inactive_task').innerHTML
-
-      const e_from = (template, model) => {
-        const container = p_dom(document.createElement('div'))
-        for (const key in model) {
-          if (model.hasOwnProperty(key)) {
-            template = template.replace(new RegExp('{' + key + '}', 'g'), '' + model[key])
-          }
-        }
-        container.innerHTML = template
-        return container.s('div')
-      }
-
-      const input_box = s('.new_task') // New Task View.
-      const output_box = s('.output_box')
-      const log = msg => output_box.innerHTML = msg || ''
-      const trait_login = 'email:'
-      const credentials = {}
-      const clear_input = () => (input_box.value = '')
-      const check_input_type = type => (type === input_box.attr('type'))
-      const is_text_inputting = () => check_input_type('text')
-      const set_input_attr = obj => {
-        for (const k in obj) {
-          if (obj.hasOwnProperty(k)) {
-            input_box.set(k, obj[k])
-          }
-        }
-      }
-      input_box.onkeydown = e => {
-        if (e.keyCode === 13 && input_box.value) {
-          const desc = input_box.value
-          clear_input()
-          if (is_text_inputting()) {
-            if (desc.startsWith(trait_login)) {
-              credentials.email = desc.substr(trait_login.length, desc.length)
-              set_input_attr({
-                placeholder: '输入密码',
-                type: 'password',
-              })
-            } else {
-              create_wip_task(create_task({desc}))
-            }
+      }),
+      list_task = () => post('task/list'),
+      save_task_data = task => post('task', task)
+        .then(({success, _id}) => {
+          if (success) {
+            task._id = _id
           } else {
-            set_input_attr({
-              placeholder: '输入新任务',
-              type: 'text',
-            })
-            login(credentials.email, desc).catch(
-              res => log(`登录失败 : ${res.msg}`),
-            )
+            log('任务保存失败，请咨询服务器管理员')
           }
-        } else {
-          log()
-        }
+        }).catch(error => {
+          log('任务保存失败', error)
+        }),
+      trait_login = 'email:',
+      credentials = {}
+    /////// Globals initialized. ///////
+
+    console.log(
+      '%c>>>>%c Log indicate%c developing.',
+      'color: #353535; font-weight: 700;',
+      'color: deepskyblue;',
+      'color: darkgreen;',
+    )
+    body
+      .append(container)
+      .append(footer)
+    prepare_views()
+    on_draw()
+
+    list_task().then(result => {
+      const {
+        success,
+        tasks,
+      } = result
+      if (false === success) {
+        log('取数据失败 : 请咨询服务器管理员')
+        return
       }
-
-      const in_progress_view = s('.in_progress') // In-progress Tasks View.
-      const completed_view = s('.completed')   // Completed Tasks View.
-      const pending_view = s('.pending')   // Pending Tasks View.
-
-      const in_progress_tasks = (() => {
-        const wip_view = []
-        const get_worker = {
-          last: () => wip_view[wip_view.length - 1],
-          is_empty: () => (0 === wip_view.length),
-        }
-        const wip_handler = {
-          get: (_, key) => {
-            if (get_worker.hasOwnProperty(key)) {
-              return get_worker[key]
-            }
-            return wip_view[key]
-          },
-          set: (_, key, val) => {
-            wip_view[key] = val
-            return true
-          },
-        }
-        return new Proxy(wip_view, wip_handler)
-      })()
-      const completed_tasks = []  // Completed Tasks Model.
-      const pending_tasks = []  // Pending Tasks Model.
-      /////// Globals initialized. ///////
-
-      const update_footer = () => {
-        let itCount = in_progress_tasks.length
-        let ctCount = completed_tasks.length
-        let ccCount = pending_tasks.length
-
-        s('.it-count').innerHTML = itCount + ' '
-        s('.ct-count').innerHTML = ' ' + ctCount + ' '
-        s('.cc-count').innerHTML = ' ' + ccCount + ' '
-        const cc = s('.clear_completed')
-        if (ctCount > 0) {
-          cc.remove_class('hide')
-        } else {
-          cc.add_class('hide')
-        }
-        const cp = s('.clear_pending')
-        if (ccCount > 0) {
-          cp.remove_class('hide')
-        } else {
-          cp.add_class('hide')
-        }
-      }
-
-      const create_wip_task = (task, is_init) => {  // Create In-progress Task.
-        const obj = {desc: task.desc}
-        const d = e_from(task_view_template, obj)
-        if (in_progress_tasks.is_empty()) {
-          task.activate(d)
-        }
-        in_progress_view.append(d)
-
-        // Bind handler to the buttons.
-        d.s('.remove_btn').onclick = () => {
-          // Pend a task.
-          remove_a_task(d, in_progress_tasks)
-          create_pending_task(task)
-          passively_active()
-        }
-        d.s('.complete_btn').onclick = () => {
-          // Complete a task.
-          remove_a_task(d, in_progress_tasks)
-          create_done_task(task)
-          passively_active()
-        }
-        d.s('.activate_btn').onclick = () => {
-          // Activate a task.
-          activate_wip_task(d)
-        }
-        d.s('.up_btn').onclick = () => {
-          // Move a task up one row.
-          const exchanged = move_item_up(d)
-          if (false === exchanged) {
-            return
-          }
-          save_task(exchanged)
-          save_task(task)
-        }
-
-        show_time(task, d)
-
-        // Synchronize data.
-        if (!is_init) {
-          task.sn = (
-            in_progress_tasks.is_empty() ?
-              0 : (in_progress_tasks.last().sn + 1)
-          )
-          task.state = task_state.in_progress
-          save_task(task)
-        }
-        in_progress_tasks.push(task)
-
-        update_footer()
-        return d
-      }
-
-      const passively_active = () => {
-        const top = in_progress_view.s('.task:nth-of-type(1)')
-        if (!top) {
-          return
-        }
-        const desc = top.s('span').innerHTML
-        const top_task = get_by_desc(in_progress_tasks, desc)
-        top_task.activate(top)
-        save_task(top_task)
-      }
-
-      const move_item_up = item => { // Only work for in_progress tasks
-        const prevItem = item.prev()
-        const content = prevItem.s('span').innerHTML
-        const task = remove_a_task(item, in_progress_tasks)
-        in_progress_view.insert(item, prevItem)
-        return insert_by_desc(in_progress_tasks, content, task)
-      }
-
-      const activate_wip_task = (view, is_init) => {
-        // De-activate the current active task.
-        const top = in_progress_view.s('.task:nth-of-type(1)')
-        const top_task = in_progress_tasks[0]
-        top_task.inactivate()
-        if (!is_init) {
-          save_task(top_task)
-        }
-        show_time(top_task, top)
-
-        // Activate the selected task.
-        const task = remove_a_task(view, in_progress_tasks)  // Temporarily remove the selected task.
-        const locator = in_progress_view.s('.task:nth-of-type(1)')
-        if (locator) {  // Move current task to the head of the list.
-          in_progress_view.insert(view, locator)
-        } else {
-          in_progress_view.append(view)
-        }
-
-        // Synchronize the storage.
-        in_progress_tasks.splice(0, 0, task)
-        task.activate(view)
-        show_time(task, view)
-        if (!is_init) {
-          task.sn = top_task.sn - 1
-          save_task(task)
-        }
-
-        update_footer()
-      }
-
-      const get_by_desc = (arr, desc) => {
-        for (const t of arr) {
-          if (desc === t.desc) {
-            return t
-          }
-        }
-        return undefined
-      }
-
-      const remove_by_desc = (arr, desc) => {
-        let index = 0
-        for (const t of arr) {
-          if (desc === t.desc) {
-            return arr.splice(index, 1)[0]
-          }
-          ++index
-        }
-        return undefined
-      }
-
-      const insert_by_desc = (arr, desc, toInsert) => {
-        let index = 0
-        for (const t of arr) {
-          if (desc === t.desc) {
-            const sn = toInsert.sn
-            toInsert.state = task_state.in_progress
-            toInsert.sn = t.sn
-            t.sn = sn
-            arr.splice(index, 0, toInsert)
-            return t
-          }
-          ++index
-        }
-        return undefined
-      }
-
-      const remove_a_task = (view, type) => {  // Remove In-progress Task.
-        // Remove the task view from the page.
-        const c = view.parentNode
-        c.removeChild(view.is_proxy ? view.view : view)
-
-        const taskDesc = view.s('span').innerText
-        const task = remove_by_desc(type, taskDesc)
-        task.complete()
-
-        update_footer()
-        return task
-      }
-
-      const create_done_task = (task, is_init) => {  // Create Completed Task.
-        task.complete()
-
-        const obj = {desc: task.desc, icon_color: 'green'}
-        const d = e_from(done_view_template, obj)
-        completed_view.append(d)
-
-        // Bind handler to the remove button.
-        d.s('.remove_btn').onclick = () => {
-          remove_a_task(d, completed_tasks)
-          task.is_cleared = true
-          save_task(task)
-        }
-        d.s('.roll_btn').onclick = () => {
-          remove_a_task(d, completed_tasks)
-          create_wip_task(task)
-        }
-
-        show_time(task, d)
-
-        // Synchronize data.
-        completed_tasks.push(task)  // Perhaps 0-100 means progress? Or an object.
-        if (!is_init) {
-          save_task(task)
-        }
-
-        update_footer()
-        return d
-      }
-
-      const create_pending_task = (task, is_init) => {  // Create Pending Task.
-        task.pend()
-
-        const obj = {desc: task.desc, icon_color: 'gray'}
-        const d = e_from(done_view_template, obj)
-        pending_view.append(d)
-        // Bind handler to the remove button.
-        d.s('.remove_btn').onclick = () => {
-          remove_a_task(d, pending_tasks)
-          task.is_cleared = true
-          save_task(task)
-        }
-        d.s('.roll_btn').onclick = () => {
-          remove_a_task(d, pending_tasks)
-          create_wip_task(task)
-        }
-
-        show_time(task, d)
-
-        // Synchronize data.
-        pending_tasks.push(task)  // Perhaps 0-100 means progress? Or an object.
-        if (!is_init) {
-          save_task(task)
-        }
-
-        update_footer()
-        return d
-      }
-
-      const show_time = (task, view) => {
-        if (!view) {
-          return
-        }
-        if (task.get_timecost() > 0) {
-          const a = view.s('.time_cost')
-          a.remove_class('hide')
-          a.innerHTML = time_str(task.get_timecost())
-        }
-      }
-
-      const clear_completed_handler = () => {
-        let task = completed_view.s('.task')
-        while (task) {
-          const t = remove_a_task(task, completed_tasks)
-          t.is_cleared = true
-          save_task(t)
-          task = completed_view.s('.task')
-        }
-      }
-      s('.clear_completed_btn').onclick = clear_completed_handler
-      s('.clear_completed').onclick = clear_completed_handler
-
-      const clear_pending_handler = () => {
-        let task = pending_view.s('.task')
-        while (task) {
-          const t = remove_a_task(task, pending_tasks)
-          t.is_cleared = true
-          save_task(t)
-          task = pending_view.s('.task')
-        }
-      }
-      s('.clear_pending_btn').onclick = clear_pending_handler
-      s('.clear_pending').onclick = clear_pending_handler
-
-      list_task().then(result => {
-        const {
-          success,
-          tasks,
-        } = result
-        if (false === success) {
-          log('取数据失败 : 请咨询服务器管理员')
-          return
-        }
-        tasks.sort(({sn: a}, {sn: b}) => {
-          a = a || 0
-          b = b || 0
-          return a - b
-        })
-        // Init the tasks.
-        for (const task of tasks) {
-          if (task_state.in_progress === task.state) {
-            const i = create_task(task)
-            if (task.is_activated) {
-              activate_wip_task(create_wip_task(i, true), true)
-            } else {
-              create_wip_task(i, true)
-            }
-          } else if (task_state.completed === task.state) {
-            create_done_task(create_task(task), true)
-          } else {
-            create_pending_task(create_task(task), true)
-          }
-        }
-      }).catch(res => {
-        console.log(res, '<<<<<<< Error')
-        log(`取数据失败 : ${res.msg}`)
+      tasks.sort(({sn: a}, {sn: b}) => {
+        a = a || 0
+        b = b || 0
+        return a - b
       })
+      // Init the tasks.
+      for (const task of tasks) {
+        const taskData = create_task_data(task)
+        if (task_state.in_progress === task.state) {
+          wipSection.addTask(new Task()
+            .setData(taskData))
+        } else if (task_state.completed === task.state) {
+          completeSection.addTask(new Task()
+            .setData(taskData))
+        } else {
+          pendingSection.addTask(new Task()
+            .setData(taskData))
+        }
+      }
+    }).catch(res => {
+      console.log(res, '<<<<<<< Error')
+      log(`取数据失败 : ${res.msg}`)
     })
-  </script>
+  })</script>
   <title>日常任务管理</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="shortcut icon" href="css/task_manager.png"/>
+  <style media="screen">
+    @keyframes active_color {
+      from {
+        background-color: #ddcc00;
+      }
+      30% {
+        background-color: #00ff00;
+      }
+      70% {
+        background-color: #dd0000;
+      }
+      to {
+        background-color: #ddcc00;
+      }
+    }
+  </style>
   <style media="screen">
     html, body {
       padding: 0;
       margin: 0;
       font-family: Microsoft YaHei, monospace;
       user-select: none;
-      /*pointer-events: none;*/
     }
 
     body {
@@ -701,302 +1069,9 @@
       margin: 0 auto;
       background: #eeeeee;
       color: #333333;
-    }
-
-    .header {
-      text-align: center;
-    }
-
-    .output_box {
-      text-align: left;
-    }
-
-    .contents {
-      background: #fff;
-      padding: 1rem;
-      box-shadow: rgba(0, 0, 0, 0.2) 0 2px 6px 0;
-    }
-
-    .new_task {
-      font-size: 1rem;
-      outline: none;
-      padding: .3rem;
-      border: 1px solid #999999;
-      box-shadow: rgba(0, 0, 0, 0.2) 0 1px 2px 0 inset;
-      box-sizing: border-box;
-      width: 100%;
-    }
-
-    .completed, .pending {
-      color: #999;
-    }
-
-    .task {
-      position: relative;
-      text-align: left;
-      font-size: 1rem;
-      line-height: 1rem;
-      padding: .5rem 0;
-      border-top: 1px solid #cccccc;
-    }
-
-    .task:nth-of-type(1) {
-      border-top: none;
-    }
-
-    .task:nth-of-type(1):hover .activate_btn,
-    .task:nth-of-type(1):hover .up_btn,
-    .task:nth-of-type(2):hover .up_btn {
-      display: none;
-    }
-
-    .remove_btn,
-    .complete_btn,
-    .roll_btn,
-    .activate_btn,
-    .up_btn {
-      position: absolute;
-      top: 0;
-      display: none;
-      cursor: pointer;
-      width: 1rem;
-      height: 1rem;
-    }
-
-    .task .remove_btn,
-    .task .complete_btn,
-    .task .roll_btn,
-    .task .activate_btn,
-    .task .up_btn {
-      top: .5rem;
-    }
-
-    .task a.time_cost {
-      position: absolute;
-      display: block;
-      top: .5rem;
-      right: 4rem;
-      height: 1rem;
-      width: 7rem;
-      font-size: .6rem;
-      line-height: 1rem;
-      text-align: right;
-      padding-right: .5rem;
-      background-color: rgba(0, 0, 0, 0.2);
-      color: #fff;
-      border-radius: .5rem;
-      cursor: default;
-    }
-
-    .seg_divider {
-      color: #555;
-      text-align: left;
-      font-size: 1rem;
-      line-height: 1rem;
-      padding-bottom: .4rem;
-      font-weight: bold;
-      border-bottom: 2px solid #bbb;
-      position: relative;
-      margin: 2rem 0 0 0;
-    }
-
-    .remove_btn {
-      right: 0;
-      background-image: url(css/destroy.png);
-      background-repeat: no-repeat;
-      background-size: 1rem auto;
-    }
-
-    .complete_btn {
-      right: 1rem;
-      background-image: url(css/complete.png);
-      background-repeat: no-repeat;
-      background-size: 1rem auto;
-    }
-
-    .roll_btn {
-      right: 1rem;
-      background-image: url(css/roll.png);
-      background-repeat: no-repeat;
-      background-size: 1rem auto;
-    }
-
-    .activate_btn {
-      right: 2rem;
-      background-image: url(css/activate.png);
-      background-repeat: no-repeat;
-      background-size: 1rem auto;
-    }
-
-    .up_btn {
-      right: 3rem;
-      background-image: url(css/move_up.png);
-      background-repeat: no-repeat;
-      background-size: 1rem auto;
-    }
-
-    div.seg_divider:hover .remove_btn,
-    .task:hover .remove_btn,
-    .task:hover .complete_btn,
-    .task:hover .roll_btn,
-    .task:hover .activate_btn,
-    .task:hover .up_btn {
-      display: block;
-    }
-
-    .remove_btn:hover,
-    .complete_btn:hover,
-    .roll_btn:hover,
-    .activate_btn:hover,
-    .up_btn:hover {
-      background-position: 0 -1rem;
-    }
-
-    a.colored_icon {
-      width: 1rem;
-      height: 1rem;
-      display: inline-block;
-      border-radius: .5rem;
-      vertical-align: -2px;
-      margin: 0 5px 0 0;
-    }
-
-    .green {
-      background-color: #0b0;
-    }
-
-    .gray {
-      background-color: #ddd;
-    }
-
-    .yellow {
-      background-color: #dc0;
-    }
-
-    .in_progress .task:nth-of-type(1) .colored_icon {
-      animation: active_color 1s infinite;
-    }
-
-    @keyframes active_color {
-      from {
-        background-color: #dc0;
-      }
-      30% {
-        background-color: #0f0
-      }
-      70% {
-        background-color: #d00
-      }
-      to {
-        background-color: #dc0;
-      }
-    }
-
-    .footer {
-      color: #555;
-      background: #f4fce8;
-      font-size: .8rem;
-      padding: 1rem;
-      border-top: 1px solid #ededed;
-      box-shadow: rgba(0, 0, 0, 0.2) 0 2px 6px -1px;
-
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .clear_completed,
-    .clear_pending {
-      display: block;
-      font-size: .6rem;
-      height: 1.2rem;
-      line-height: 1.2rem;
-      border-radius: .6rem;
-      padding: 0 1rem;
-      background-color: rgba(0, 0, 0, 0.1);
-      box-shadow: rgba(0, 0, 0, 0.2) 0 -1px 0 0;
-      cursor: pointer;
-    }
-
-    .clear_completed:hover, .clear_pending:hover {
-      background-color: rgba(0, 0, 0, 0.2);
-    }
-
-    .clear_buttons {
-      display: flex;
-    }
-
-    .task .time_cost.hide,
-    .hide {
-      display: none;
+      /*pointer-events: none;*/
     }
   </style>
-  <script class='in_progress_task' type='text/template'>
-    <div class="task">
-      <a class="colored_icon yellow"></a>
-      <span>{desc}</span>
-      <a class="remove_btn" title="挂起任务"></a>
-      <a class="complete_btn" title="标记已完成任务"></a>
-      <a class="activate_btn" title="任务置顶(激活)"></a>
-      <a class="up_btn" title='上移'></a>
-      <a class="time_cost hide" title="已花费时间(分钟)">0</a>
-    </div>
-  </script>
-  <script class='inactive_task' type='text/template'>
-    <div class="task">
-      <a class="colored_icon {icon_color}"></a>
-      <span>{desc}</span>
-      <a class="remove_btn" title="移除任务"></a>
-      <a class="roll_btn" title="恢复活跃"></a>
-      <a class="time_cost hide" title="时间花费">0</a>
-    </div>
-  </script>
 </head>
-<body>
-<div class="contents"><!-- 主内容块的开始标签。 -->
-  <!--
-    总的来说，有 3 栏数据，
-    一栏是输入新任务和显示未完成任务的地方，
-    一栏是已完成任务，
-    还有一栏是已取消任务。
-  -->
-  <!-- 每个任务有开始时间、花费时间的属性。 -->
-  <div class="header">
-    <h1>日常任务管理工具</h1>
-    <div>
-      <label>
-        <input class="new_task" type="text" placeholder="输入新任务"/>
-      </label>
-    </div>
-    <div class='output_box'></div>
-  </div>
-
-  <div class="seg_divider">活跃的任务▽</div>
-  <div class="in_progress"></div>
-
-  <div class="seg_divider">完成的任务▽<a
-    class="clear_completed_btn remove_btn"
-    title="移除所有已完成任务"
-  ></a></div>
-  <div class="completed"></div>
-
-  <div class="seg_divider">挂起的任务▽<a
-    class="clear_pending_btn remove_btn"
-    title="移除所有挂起的任务"
-  ></a></div>
-  <div class="pending"></div>
-</div><!-- 主内容块的结束标签。 -->
-
-<div class="footer">
-  <div><b class="it-count">0 </b>项活动任务</div>
-  <div class="clear_buttons">
-    <a
-      class="clear_completed hide"
-    >清除<b class="ct-count"> 0 </b>项已完成任务</a>
-    <a
-      class="clear_pending hide"
-    >清除<b class="cc-count"> 0 </b>项已挂起任务</a>
-  </div>
-</div>
-</body>
+<body></body>
 </html>
