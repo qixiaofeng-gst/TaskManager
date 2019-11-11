@@ -822,7 +822,7 @@
         }
         this._data.startTime = Date.now()
         this._data.is_activated = true
-        return this
+        return this.saveData()
       }
 
       deactivate() {
@@ -833,7 +833,7 @@
         this._data.timeCost += (Date.now() - this._data.startTime)
         this._data.startTime = 0
         this._data.is_activated = false
-        return this
+        return this.saveData()
       }
 
       updateTimeCost() {
