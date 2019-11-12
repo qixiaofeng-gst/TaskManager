@@ -13,7 +13,8 @@
       isMouseDown = false
     }
     window.onclose = () => {
-      // TODO deactivate task
+      // XXX Below line does not work. At least the state is not saved.
+      groupManager.deactivateManager()
     }
 
     const
@@ -387,12 +388,12 @@
         return this
       }
 
-      activate() {
-        this._tasks.length > 0 && this._tasks[0].activate()
+      activateSection() {
+        this._tasks.length > 0 && this._tasks[0].activateTask()
       }
 
-      deactivate() {
-        this._tasks.length > 0 && this._tasks[0].deactivate()
+      deactivateSection() {
+        this._tasks.length > 0 && this._tasks[0].deactivateTask()
       }
 
       afterEmptyTasks(action) {
@@ -506,7 +507,7 @@
             this.addView(this._placeholder)
             this._afterEmptyTasks()
           } else if (0 === index) {
-            this._tasks[0].activate()
+            this._tasks[0].activateTask()
           }
         })
         this.addView(task)
@@ -802,19 +803,23 @@
         return this
       }
 
+      getSN() {
+        return this._data.sn
+      }
+
       setState(strTaskState) {
         strTaskState = strTaskState || this._data.state
         this._data.state = strTaskState
         if (task_state.in_progress === strTaskState && 0 === this._data.sn) {
-          this.activate()
+          this.activateTask()
         } else {
-          this.deactivate()
+          this.deactivateTask()
         }
         return this
       }
 
-      activate() {
-        activatedTask && activatedTask.deactivate()
+      activateTask() {
+        activatedTask && activatedTask.deactivateTask()
         activatedTask = this
         this.setDotAnimation(true)
         if (true === this._data.is_activated) {
@@ -825,7 +830,7 @@
         return this.saveData()
       }
 
-      deactivate() {
+      deactivateTask() {
         this.setDotAnimation(false)
         if (false === this._data.is_activated) {
           return this
@@ -992,7 +997,7 @@
             const task = this._wipSection.getTaskByView(targetElement)
             if (task.isActivated) {
               this._completeSection.addTask(task
-                .deactivate()
+                .deactivateTask()
                 .setSN(this._completeSection.taskCount)
                 .setState(task_state.completed)
                 .saveData(() => this._wipSection.saveTasks()))
@@ -1004,6 +1009,10 @@
             activatedTask = undefined
           })
         return this
+      }
+
+      deactivateGroup() {
+        this._wipSection.deactivateSection()
       }
 
       updateFooter() {
@@ -1023,7 +1032,7 @@
           return this
         }
         this._isVisible = true
-        self._wipSection.activate()
+        self._wipSection.activateSection()
         self.updateFooter()
         return this.setDisplay(Displays.block)
       }
@@ -1034,28 +1043,31 @@
           return this
         }
         this._isVisible = false
-        self._wipSection.deactivate()
+        self._wipSection.deactivateSection()
         return this.setDisplay(Displays.none)
       }
 
-      add(task) {
+      addTaskWildly(task) {
         const self = this
+        let targetSection = undefined
         switch (task.state) {
           case task_state.completed:
-            self._completeSection.addTask(task
-              .setSN(self._completeSection.taskCount)
-              .saveData())
+            targetSection = self._completeSection
             break
           case task_state.in_progress:
-            self._wipSection.addTask(task
-              .setSN(self._wipSection.taskCount)
-              .saveData())
+            targetSection = self._wipSection
             break
           default:
-            self._pendingSection.addTask(task
-              .setSN(self._pendingSection.taskCount)
-              .saveData())
+            targetSection = self._pendingSection
         }
+        const taskCount = targetSection.taskCount
+        targetSection.addTask(task)
+        if (taskCount === task.getSN()) {
+          return self
+        }
+        task
+          .setSN(taskCount)
+          .saveData()
         return self
       }
     }
@@ -1145,8 +1157,9 @@
           this._groups[parseDesc.group] = group
           container.addView(group)
         }
-        this._groups[parseDesc.group].add(task
+        this._groups[parseDesc.group].addTaskWildly(task
           .setParsedDesc(parseDesc))
+        return this
       }
 
       createTaskFromText(strEntered) {
@@ -1160,11 +1173,14 @@
         const isDefault = defaultGroup === this._activeGroup
         if (false === isDefault && defaultGroup === parsed.group) {
           adjustedDesc = `${this._activeGroup}${colonEN}${adjustedDesc}`
+          parsed.group = this._activeGroup
         }
-        const task = new Task()
-          .setData(create_task_data({desc: adjustedDesc}))
-        this.addWildTask(task)
-
+        this.addWildTask(new Task()
+          .setData(create_task_data({desc: adjustedDesc})))
+        const isSameGroup = parsed.group === this._activeGroup
+        if (false === isSameGroup) {
+          this._switchToGroup(parsed.group)
+        }
         return this
       }
 
@@ -1182,6 +1198,10 @@
         const groupCount = Object.keys(this._groups).length
         groupCount > 0 && this._groups[this._activeGroup].show()
         this._groupTags.highlightTag(this._activeGroup)
+      }
+
+      deactivateManager() {
+        this._groups[this._activeGroup].deactivateGroup()
       }
 
       _switchToGroup(groupName) {
