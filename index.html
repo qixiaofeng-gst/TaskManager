@@ -19,13 +19,13 @@
 
     const
       const_proxy_handler = new Proxy({
-        get: (target, p, _) => target[p],
+        get: (target, p, _receiver) => target[p],
         set: () => {
           console.error('Constant could not be set')
           return false
         },
       }, {
-        get: (target, p, _) => target[p],
+        get: (target, p, _receiver) => target[p],
         set: () => false,
       }),
       Colors = new Proxy({
@@ -290,9 +290,10 @@
     }
 
     class SectionTitle extends View {
-      _text = new Text()
-      _removeButton = new IconButton()
-      _onRemoveClick = () => undefined
+      #onRemoveClick = () => undefined
+
+      #text = new Text()
+      #removeButton = new IconButton()
 
       constructor() {
         super()
@@ -306,28 +307,28 @@
           .setFontWeight(FontWeights.bold)
           .setBorderBottom(`2px solid ${Colors.border_lighter}`)
           .setMargin('2rem 0 0 0')
-          .addView(this._text)
-          .addView(this._removeButton
+          .addView(this.#text)
+          .addView(this.#removeButton
             .setBGImage('css/destroy.png')
             .setDisplay(Displays.none))
 
-        this._removeButton.onclick = () => this._onRemoveClick()
+        this.#removeButton.onclick = () => this.#onRemoveClick()
       }
 
       setText(strValue) {
-        this._text.setContent(strValue)
+        this.#text.setContent(strValue)
         return this
       }
 
       onRemoveClick(action) {
-        this._onRemoveClick = action
+        this.#onRemoveClick = action
         return this
       }
 
       enableRemove(isEnable = true) {
         if (isEnable) {
-          this.onmouseenter = () => this._removeButton.setDisplay(Displays.block)
-          this.onmouseleave = () => this._removeButton.setDisplay(Displays.none)
+          this.onmouseenter = () => this.#removeButton.setDisplay(Displays.block)
+          this.onmouseleave = () => this.#removeButton.setDisplay(Displays.none)
         } else {
           this.onmouseenter = undefined
           this.onmouseleave = undefined
@@ -337,48 +338,48 @@
     }
 
     class Section extends View {
-      _tasks = []
-      _placeholder = new Text()
-      _title = new SectionTitle()
-      _onDragStart = _ => undefined
-      _onDragEnd = () => undefined
-      _onDrop = _ => undefined
-      _onDoubleClick = _ => undefined
-      _beforeAddTask = _ => undefined
-      _afterEmptyTasks = () => undefined
-      _onTasksUpdate = () => undefined
+      #onDragStart = _task => undefined
+      #onDragEnd = () => undefined
+      #onDrop = _target => undefined
+      #onDoubleClick = _target => undefined
+      #beforeAddTask = _task => undefined
+      #afterEmptyTasks = () => undefined
+      #onTasksUpdate = () => undefined
+      #tasks = []
+      #placeholder = new Text()
+      #title = new SectionTitle()
 
       get taskCount() {
-        return this._tasks.length
+        return this.#tasks.length
       }
 
       constructor() {
         super()
         this
           .setDisplay(Displays.block)
-          .addView(this._title)
-          .addView(this._placeholder
+          .addView(this.#title)
+          .addView(this.#placeholder
             .setContent('无'))
 
         this.ondragover = e => e.preventDefault() // enable drop with this call
-        this.ondragstart = e => this._onDragStart(e.target)
+        this.ondragstart = e => this.#onDragStart(e.target)
         this.ondrop = e => {
           isMouseDown = false
-          this._onDrop(e.target)
+          this.#onDrop(e.target)
         }
-        this.ondragend = _ => this._onDragEnd()
-        this.ondblclick = e => this._onDoubleClick(e.target)
-        this._title.onRemoveClick(() => this.clearTasks())
+        this.ondragend = () => this.#onDragEnd()
+        this.ondblclick = e => this.#onDoubleClick(e.target)
+        this.#title.onRemoveClick(() => this.clearTasks())
       }
 
       clearTasks() {
         const removeTask = () => {
-          if (0 === this._tasks.length) {
-            this._onTasksUpdate()
-            this.addView(this._placeholder)
+          if (0 === this.#tasks.length) {
+            this.#onTasksUpdate()
+            this.addView(this.#placeholder)
             return
           }
-          const task = this._tasks.splice(0, 1)[0]
+          const task = this.#tasks.splice(0, 1)[0]
           this.cutView(task)
           task
             .markCleared()
@@ -389,15 +390,15 @@
       }
 
       activateSection() {
-        this._tasks.length > 0 && this._tasks[0].activateTask()
+        this.#tasks.length > 0 && this.#tasks[0].activateTask()
       }
 
       deactivateSection() {
-        this._tasks.length > 0 && this._tasks[0].deactivateTask()
+        this.#tasks.length > 0 && this.#tasks[0].deactivateTask()
       }
 
       afterEmptyTasks(action) {
-        this._afterEmptyTasks = action
+        this.#afterEmptyTasks = action
         return this
       }
 
@@ -413,9 +414,9 @@
           if (toMoveIndex > invalidIndex && anchorIndex > invalidIndex) {
             break
           }
-          if (toMove === this._tasks[index]) {
+          if (toMove === this.#tasks[index]) {
             toMoveIndex = index
-          } else if (anchorTask === this._tasks[index]) {
+          } else if (anchorTask === this.#tasks[index]) {
             anchorIndex = index
           }
         }
@@ -423,18 +424,18 @@
           return
         }
         this.insertBefore(toMove, anchorTask)
-        this._tasks.splice(toMoveIndex, 1)
+        this.#tasks.splice(toMoveIndex, 1)
         let
           startIndex = toMoveIndex,
           endIndex = toMoveIndex
         if (toMoveIndex > anchorIndex) {
           startIndex = anchorIndex
-          this._tasks.splice(anchorIndex, 0, toMove)
+          this.#tasks.splice(anchorIndex, 0, toMove)
         } else {
           endIndex = anchorIndex
-          this._tasks.splice(anchorIndex - 1, 0, toMove)
+          this.#tasks.splice(anchorIndex - 1, 0, toMove)
         }
-        this._saveTask(startIndex, endIndex)
+        this.#saveTask(startIndex, endIndex)
       }
 
       getTaskByView(view) {
@@ -453,101 +454,102 @@
       }
 
       setTitle(strValue) {
-        this._title.setText(strValue)
+        this.#title.setText(strValue)
         return this
       }
 
       enableClear(isEnable = true) {
-        this._title.enableRemove(isEnable)
+        this.#title.enableRemove(isEnable)
         return this
       }
 
       onDragStart(action) {
-        this._onDragStart = action
+        this.#onDragStart = action
         return this
       }
 
       onDragEnd(action) {
-        this._onDragEnd = action
+        this.#onDragEnd = action
         return this
       }
 
       onDrop(action) {
-        this._onDrop = action
+        this.#onDrop = action
         return this
       }
 
       onDoubleClick(action) {
-        this._onDoubleClick = action
+        this.#onDoubleClick = action
         return this
       }
 
       beforeAddTask(action) {
-        this._beforeAddTask = action
+        this.#beforeAddTask = action
         return this
       }
 
       onTasksUpdate(action) {
-        this._onTasksUpdate = action
+        this.#onTasksUpdate = action
         return this
       }
 
       addTask(task) {
-        if (0 === this._tasks.length) {
-          this.cutView(this._placeholder)
+        if (0 === this.#tasks.length) {
+          this.cutView(this.#placeholder)
           task.setState()
         }
-        this._beforeAddTask(task)
+        this.#beforeAddTask(task)
         task.popFromOldParent()
-        this._tasks.push(task)
+        this.#tasks.push(task)
         task.onPopFromOldParent(() => {
-          const index = this._tasks.indexOf(task)
-          index >= 0 && this._tasks.splice(index, 1)
-          if (0 === this._tasks.length) {
-            this.addView(this._placeholder)
-            this._afterEmptyTasks()
+          const index = this.#tasks.indexOf(task)
+          index >= 0 && this.#tasks.splice(index, 1)
+          if (0 === this.#tasks.length) {
+            this.addView(this.#placeholder)
+            this.#afterEmptyTasks()
           } else if (0 === index) {
-            this._tasks[0].activateTask()
+            this.#tasks[0].activateTask()
           }
         })
         this.addView(task)
-        this._onTasksUpdate()
+        this.#onTasksUpdate()
         return this
       }
 
       saveTasks() {
-        this._saveTask(0, this._tasks.length - 1)
+        this.#saveTask(0, this.#tasks.length - 1)
       }
 
-      _saveTask(start, end) {
+      #saveTask = function (start, end) {
+        const self = this
         if (start <= end) {
-          this._tasks[start]
+          self.#tasks[start]
             .setSN(start)
             .setState(task_state.in_progress)
-            .saveData(() => this._saveTask(start + 1, end))
+            .saveData(() => self.#saveTask(start + 1, end))
         }
       }
     }
 
     class Counter extends View {
-      _generateContent = count => `count: ${count}`
+      #generateContent = count => `count: ${count}`
 
       constructor() {
         super()
       }
 
       setContentGenerator(action) {
-        this._generateContent = action
+        this.#generateContent = action
         return this
       }
 
       setCount(value) {
-        return this.setContent(this._generateContent(value))
+        return this.setContent(this.#generateContent(value))
       }
     }
 
     class CounterButton extends Counter {
-      _onClick = () => undefined
+      #onClick = () => undefined
 
       constructor() {
         super()
@@ -569,7 +571,7 @@
           this.setBGColor(Colors.button_bg)
         }
 
-        this.onclick = () => this._onClick()
+        this.onclick = () => this.#onClick()
       }
 
       setCount(value) {
@@ -582,19 +584,19 @@
       }
 
       onClick(action) {
-        this._onClick = action
+        this.#onClick = action
         return this
       }
     }
 
     class Footer extends View {
-      _onClearPendingTasks = () => undefined
-      _onClearCompleteTasks = () => undefined
+      #onClearPendingTasks = () => undefined
+      #onClearCompleteTasks = () => undefined
 
-      _wipCounter = new Counter()
-      _buttonsContainer = new View()
-      _completeCounter = new CounterButton()
-      _pendingCounter = new CounterButton()
+      #wipCounter = new Counter()
+      #buttonsContainer = new View()
+      #completeCounter = new CounterButton()
+      #pendingCounter = new CounterButton()
 
       constructor() {
         super()
@@ -608,109 +610,109 @@
           .setBGColor(Colors.footer_bg)
           .setShadow(`0 2px 6px -1px ${Colors.shadow_lighter}`)
           .setBorderTop(`1px solid ${Colors.border_lighter}`)
-          .addView(this._wipCounter
+          .addView(this.#wipCounter
             .setContentGenerator(count => `${count} 项活动任务`)
             .setCount(0),
           )
-          .addView(this._buttonsContainer
+          .addView(this.#buttonsContainer
             .setDisplay(Displays.flex)
             .setJustifyContent(Justifies.space_between)
-            .addView(this._completeCounter
+            .addView(this.#completeCounter
               .setContentGenerator(count => `清除 ${count} 项已完成任务`)
-              .onClick(() => this._onClearCompleteTasks())
+              .onClick(() => this.#onClearCompleteTasks())
               .setCount(0),
             )
-            .addView(this._pendingCounter
+            .addView(this.#pendingCounter
               .setContentGenerator(count => `清除 ${count} 项已挂起任务`)
-              .onClick(() => this._onClearPendingTasks())
+              .onClick(() => this.#onClearPendingTasks())
               .setCount(0),
             ),
           )
       }
 
       set wipCount(numValue) {
-        this._wipCounter.setCount(numValue)
+        this.#wipCounter.setCount(numValue)
       }
 
       set pendingCount(numValue) {
-        this._pendingCounter.setCount(numValue)
+        this.#pendingCounter.setCount(numValue)
       }
 
       set completeCount(numValue) {
-        this._completeCounter.setCount(numValue)
+        this.#completeCounter.setCount(numValue)
       }
 
       onClearPendingTasks(action) {
-        this._onClearPendingTasks = action
+        this.#onClearPendingTasks = action
         return this
       }
 
       onClearCompleteTasks(action) {
-        this._onClearCompleteTasks = action
+        this.#onClearCompleteTasks = action
         return this
       }
     }
 
     class Input extends View {
-      _onTextEntered = _ => undefined
+      #onTextEntered = _text => undefined
 
-      _editingTask = undefined
-      _view = document.createElement('input')
-      _isFocused = false
+      #editingTask = undefined
+      #view = document.createElement('input')
+      #isFocused = false
 
       constructor() {
         super()
         this
           .setDisplay(Displays.block)
           .setMargin('1rem 0 0 0')
-          .addView(this._view)
-        this._view.style.fontSize = '1rem'
-        this._view.style.padding = '.3rem'
-        this._view.style.boxSizing = 'border-box'
-        this._view.style.width = '100%'
-        this._view.placeholder = '请输入任务'
-        this._view.type = InputTypes.text
+          .addView(this.#view)
+        this.#view.style.fontSize = '1rem'
+        this.#view.style.padding = '.3rem'
+        this.#view.style.boxSizing = 'border-box'
+        this.#view.style.width = '100%'
+        this.#view.placeholder = '请输入任务'
+        this.#view.type = InputTypes.text
 
-        this._view.onfocus = () => {
-          this._isFocused = true
+        this.#view.onfocus = () => {
+          this.#isFocused = true
         }
 
-        this._view.onblur = () => {
-          this._isFocused = false
+        this.#view.onblur = () => {
+          this.#isFocused = false
         }
 
-        this._view.ondragover = e => e.preventDefault()
-        this._view.ondrop = () => {
+        this.#view.ondragover = e => e.preventDefault()
+        this.#view.ondrop = () => {
           isMouseDown = false
           if (draggingTask) {
-            this._editingTask = draggingTask
-            this._view.value = draggingTask.getDesc()
+            this.#editingTask = draggingTask
+            this.#view.value = draggingTask.getDesc()
           }
         }
 
-        this._view.onkeypress = e => {
-          const entered = preventFirstCNColon(this._view.value)
+        this.#view.onkeypress = e => {
+          const entered = preventFirstCNColon(this.#view.value)
           if (e.key === KeyNames.enter && entered) {
-            this._view.value = ''
-            if (this._view.checkAttribute(InputTypes.KEY, InputTypes.text)) {
+            this.#view.value = ''
+            if (this.#view.checkAttribute(InputTypes.KEY, InputTypes.text)) {
               if (entered.startsWith(trait_login)) {
                 credentials.email = entered.substr(trait_login.length, entered.length)
-                this._view.batchSetAttributes({
+                this.#view.batchSetAttributes({
                   placeholder: '输入密码',
                   type: InputTypes.password,
                 })
               } else {
-                if (this._editingTask) {
-                  this._editingTask
+                if (this.#editingTask) {
+                  this.#editingTask
                     .setDesc(entered)
                     .saveData()
-                  this._editingTask = undefined
+                  this.#editingTask = undefined
                 } else {
-                  this._onTextEntered(entered)
+                  this.#onTextEntered(entered)
                 }
               }
             } else {
-              this._view.batchSetAttributes({
+              this.#view.batchSetAttributes({
                 placeholder: '输入新任务',
                 type: InputTypes.text,
               })
@@ -729,34 +731,34 @@
       }
 
       get isFocused() {
-        return this._isFocused
+        return this.#isFocused
       }
 
       focus(options) {
-        this._view.focus(options)
+        this.#view.focus(options)
       }
 
       onTextEntered(action) {
-        this._onTextEntered = action
+        this.#onTextEntered = action
         return this
       }
     }
 
     class Task extends View {
-      _onPopFromOldParent = _ => undefined
+      #onPopFromOldParent = () => undefined
 
-      _prefixDot = new ColoredDot()
-      _text = new Text()
-      _timeCost = new Text()
-      _data = undefined
-      _parsedDesc = undefined
+      #prefixDot = new ColoredDot()
+      #text = new Text()
+      #timeCost = new Text()
+      #data = undefined
+      #parsedDesc = undefined
 
       get isActivated() {
-        return this._data.is_activated
+        return this.#data.is_activated
       }
 
       get state() {
-        return this._data.state
+        return this.#data.state
       }
 
       constructor() {
@@ -767,50 +769,50 @@
           .setGridColumn('1rem 1fr 10rem', '.5rem')
           .setBorderBottom(`1px solid ${Colors.border_lighter}`)
           .setPadding('.25rem 0')
-          .addView(this._prefixDot)
-          .addView(this._text)
-          .addView(this._timeCost)
+          .addView(this.#prefixDot)
+          .addView(this.#text)
+          .addView(this.#timeCost)
       }
 
       setParsedDesc(parsedDesc) {
-        this._parsedDesc = parsedDesc
-        this._text.setContent(parsedDesc.desc)
+        this.#parsedDesc = parsedDesc
+        this.#text.setContent(parsedDesc.desc)
         return this
       }
 
       popFromOldParent() {
-        this._onPopFromOldParent()
+        this.#onPopFromOldParent()
         return this
       }
 
       onPopFromOldParent(action) {
-        this._onPopFromOldParent = action
+        this.#onPopFromOldParent = action
         return this
       }
 
       markCleared() {
-        this._data.is_cleared = true
+        this.#data.is_cleared = true
         return this
       }
 
       saveData(action = () => undefined) {
-        save_task_data(this._data).then(action)
+        save_task_data(this.#data).then(action)
         return this
       }
 
       setSN(numValue) {
-        this._data.sn = numValue
+        this.#data.sn = numValue
         return this
       }
 
       getSN() {
-        return this._data.sn
+        return this.#data.sn
       }
 
       setState(strTaskState) {
-        strTaskState = strTaskState || this._data.state
-        this._data.state = strTaskState
-        if (task_state.in_progress === strTaskState && 0 === this._data.sn) {
+        strTaskState = strTaskState || this.#data.state
+        this.#data.state = strTaskState
+        if (task_state.in_progress === strTaskState && 0 === this.#data.sn) {
           this.activateTask()
         } else {
           this.deactivateTask()
@@ -822,30 +824,30 @@
         activatedTask && activatedTask.deactivateTask()
         activatedTask = this
         this.setDotAnimation(true)
-        if (true === this._data.is_activated) {
+        if (true === this.#data.is_activated) {
           return this
         }
-        this._data.startTime = Date.now()
-        this._data.is_activated = true
+        this.#data.startTime = Date.now()
+        this.#data.is_activated = true
         return this.saveData()
       }
 
       deactivateTask() {
         this.setDotAnimation(false)
-        if (false === this._data.is_activated) {
+        if (false === this.#data.is_activated) {
           return this
         }
-        this._data.timeCost += (Date.now() - this._data.startTime)
-        this._data.startTime = 0
-        this._data.is_activated = false
+        this.#data.timeCost += (Date.now() - this.#data.startTime)
+        this.#data.startTime = 0
+        this.#data.is_activated = false
         return this.saveData()
       }
 
       updateTimeCost() {
-        const increment = this._data.is_activated ? (Date.now() - this._data.startTime) : 0
-        const timeCost = this._data.timeCost + increment
+        const increment = this.#data.is_activated ? (Date.now() - this.#data.startTime) : 0
+        const timeCost = this.#data.timeCost + increment
         if (timeCost > 0) {
-          this._timeCost.setContent(time_str(timeCost))
+          this.#timeCost.setContent(time_str(timeCost))
         }
         return this
       }
@@ -855,29 +857,29 @@
       }
 
       setData(taskData) {
-        this._data = taskData
+        this.#data = taskData
         this.updateTimeCost()
         return this
       }
 
       getDesc() {
-        return this._data.desc
+        return this.#data.desc
       }
 
       setDesc(desc) {
-        this._data.desc = desc
+        this.#data.desc = desc
         this.setParsedDesc(parse_desc(desc))
         return this
       }
 
       setPrefixColor(strValue) {
-        this._prefixDot.setBGColor(strValue)
+        this.#prefixDot.setBGColor(strValue)
         return this
       }
 
       setDotAnimation(isActive = true) {
         const animation = 'active_color 1s infinite'
-        this._prefixDot.setAnimation(isActive ? animation : 'unset')
+        this.#prefixDot.setAnimation(isActive ? animation : 'unset')
         return this
       }
     }
@@ -922,25 +924,24 @@
     }
 
     class TaskGroup extends View {
-      _wipSection = new Section()
+      #wipSection = new Section()
         .setTitle('进行中')
         .enableClear(false)
-      _completeSection = new Section()
+      #completeSection = new Section()
         .setTitle('已完成')
         .enableClear()
-      _pendingSection = new Section()
+      #pendingSection = new Section()
         .setTitle('已挂起')
         .enableClear()
-      _isVisible = false
+      #isVisible = false
 
       constructor() {
         super()
-        const self = this
-        self
+        this
           .setDisplay(Displays.none)
-          .addView(self._wipSection)
-          .addView(self._pendingSection)
-          .addView(self._completeSection)
+          .addView(this.#wipSection)
+          .addView(this.#pendingSection)
+          .addView(this.#completeSection)
           .prepareViews()
       }
 
@@ -948,157 +949,153 @@
         return (targetElement => {
           const targetTask = section.getTaskByView(targetElement)
           if (targetTask) {
-            this._wipSection.addTask(targetTask
-              .setSN(this._wipSection.taskCount)
+            this.#wipSection.addTask(targetTask
+              .setSN(this.#wipSection.taskCount)
               .setState(task_state.in_progress)
               .saveData())
           }
         })
       }
 
-      prepareViews = () => {
-        this._pendingSection
-          .beforeAddTask(task => task
-            .setPrefixColor(Colors.gray)
-            .enableDrag(false))
-          .onTasksUpdate(() => this.updateFooter())
-          .onDrop(_ => {
-            input.focus()
-            draggingTask && this._pendingSection.addTask(draggingTask
-              .setSN(this._pendingSection.taskCount)
-              .setState(task_state.pending)
-              .saveData())
-          })
-          .onDoubleClick(this.backToWip(this._pendingSection))
-        this._completeSection
-          .beforeAddTask(task => task
-            .setPrefixColor(Colors.green)
-            .enableDrag(false))
-          .onTasksUpdate(() => this.updateFooter())
-          .onDrop(_ => {
-            draggingTask && this._completeSection.addTask(draggingTask
-              .setSN(this._completeSection.taskCount)
-              .setState(task_state.completed)
-              .saveData())
-          })
-          .onDoubleClick(this.backToWip(this._completeSection))
-        this._wipSection
+      prepareViews() {
+        this.#wipSection
           .beforeAddTask(task => task
             .setPrefixColor(Colors.yellow)
             .enableDrag(true))
           .onTasksUpdate(() => this.updateFooter())
           .onDragStart(task => draggingTask = task)
           .onDrop(targetElement => {
-            const targetTask = this._wipSection.getTaskByView(targetElement)
-            targetTask && draggingTask && this._wipSection.moveTask(draggingTask, targetTask)
+            const targetTask = this.#wipSection.getTaskByView(targetElement)
+            targetTask && draggingTask && this.#wipSection.moveTask(draggingTask, targetTask)
           })
           .onDragEnd(() => draggingTask = undefined)
           .onDoubleClick(targetElement => {
-            const task = this._wipSection.getTaskByView(targetElement)
+            const task = this.#wipSection.getTaskByView(targetElement)
             if (task.isActivated) {
-              this._completeSection.addTask(task
+              this.#completeSection.addTask(task
                 .deactivateTask()
-                .setSN(this._completeSection.taskCount)
+                .setSN(this.#completeSection.taskCount)
                 .setState(task_state.completed)
-                .saveData(() => this._wipSection.saveTasks()))
+                .saveData(() => this.#wipSection.saveTasks()))
             } else {
-              this._wipSection.moveTask(task, activatedTask)
+              this.#wipSection.moveTask(task, activatedTask)
             }
           })
           .afterEmptyTasks(() => {
             activatedTask = undefined
           })
+        this.#pendingSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.gray)
+            .enableDrag(false))
+          .onTasksUpdate(() => this.updateFooter())
+          .onDrop(_ => {
+            input.focus()
+            draggingTask && this.#pendingSection.addTask(draggingTask
+              .setSN(this.#pendingSection.taskCount)
+              .setState(task_state.pending)
+              .saveData())
+          })
+          .onDoubleClick(this.backToWip(this.#pendingSection))
+        this.#completeSection
+          .beforeAddTask(task => task
+            .setPrefixColor(Colors.green)
+            .enableDrag(false))
+          .onTasksUpdate(() => this.updateFooter())
+          .onDrop(_ => {
+            draggingTask && this.#completeSection.addTask(draggingTask
+              .setSN(this.#completeSection.taskCount)
+              .setState(task_state.completed)
+              .saveData())
+          })
+          .onDoubleClick(this.backToWip(this.#completeSection))
         return this
       }
 
       deactivateGroup() {
-        this._wipSection.deactivateSection()
+        this.#wipSection.deactivateSection()
       }
 
       updateFooter() {
-        const self = this
-        footer.wipCount = self._wipSection.taskCount
-        footer.pendingCount = self._pendingSection.taskCount
-        footer.completeCount = self._completeSection.taskCount
+        footer.wipCount = this.#wipSection.taskCount
+        footer.pendingCount = this.#pendingSection.taskCount
+        footer.completeCount = this.#completeSection.taskCount
         footer
-          .onClearCompleteTasks(() => this._completeSection.clearTasks())
-          .onClearPendingTasks(() => this._pendingSection.clearTasks())
-        return self
+          .onClearCompleteTasks(() => this.#completeSection.clearTasks())
+          .onClearPendingTasks(() => this.#pendingSection.clearTasks())
+        return this
       }
 
-      show() {
-        const self = this
-        if (this._isVisible) {
+      showGroup() {
+        if (this.#isVisible) {
           return this
         }
-        this._isVisible = true
-        self._wipSection.activateSection()
-        self.updateFooter()
+        this.#isVisible = true
+        this.#wipSection.activateSection()
+        this.updateFooter()
         return this.setDisplay(Displays.block)
       }
 
-      hide() {
-        const self = this
-        if (false === this._isVisible) {
+      hideGroup() {
+        if (false === this.#isVisible) {
           return this
         }
-        this._isVisible = false
-        self._wipSection.deactivateSection()
+        this.#isVisible = false
+        this.#wipSection.deactivateSection()
         return this.setDisplay(Displays.none)
       }
 
-      addTaskWildly(task) {
-        const self = this
+      addTaskToGroup(task) {
         let targetSection = undefined
         switch (task.state) {
           case task_state.completed:
-            targetSection = self._completeSection
+            targetSection = this.#completeSection
             break
           case task_state.in_progress:
-            targetSection = self._wipSection
+            targetSection = this.#wipSection
             break
           default:
-            targetSection = self._pendingSection
+            targetSection = this.#pendingSection
         }
         const taskCount = targetSection.taskCount
         targetSection.addTask(task)
         if (taskCount === task.getSN()) {
-          return self
+          return this
         }
         task
           .setSN(taskCount)
           .saveData()
-        return self
+        return this
       }
     }
 
     class TagsBar extends View {
-      _onTagClick = _ => undefined
+      #onTagClick = _tag => undefined
 
-      _tags = []
-      _currentHighlight = undefined
+      #tags = []
+      #currentHighlight = undefined
 
       constructor() {
         super()
         this.setDisplay(Displays.flex)
 
         this.onclick = ({target}) => {
-          if (this._tags.indexOf(target) < 0) {
+          if (this.#tags.indexOf(target) < 0) {
             return
           }
-          this._onTagClick(target.innerHTML)
+          this.#onTagClick(target.innerHTML)
         }
       }
 
       highlightTag(tagText) {
-        const index = this._tags.findIndex(tag => tag.innerHTML === tagText)
-        if (this._currentHighlight === this._tags[index]) {
+        const index = this.#tags.findIndex(tag => tag.innerHTML === tagText)
+        if (this.#currentHighlight === this.#tags[index]) {
           return this
         }
-        this._currentHighlight && this._currentHighlight.setBGColor(Colors.border_lighter)
+        this.#currentHighlight && this.#currentHighlight.setBGColor(Colors.border_lighter)
         if (index >= 0) {
-          this._currentHighlight = this._tags[index]
-          this._currentHighlight.setBGColor(Colors.shadow_lighter)
+          this.#currentHighlight = this.#tags[index]
+          this.#currentHighlight.setBGColor(Colors.shadow_lighter)
         }
         return this
       }
@@ -1112,12 +1109,12 @@
           .setMargin('0 .2rem 0 0')
           .setRadius('.6rem')
           .setBGColor(Colors.border_lighter)
-        this._tags.push(tag)
+        this.#tags.push(tag)
         return this.addView(tag)
       }
 
       onTagClick(action) {
-        this._onTagClick = action
+        this.#onTagClick = action
         return this
       }
     }
@@ -1138,26 +1135,26 @@
     customElements.define('task-group', TaskGroup)
 
     class TaskGroupManager {
-      _groups = {}
-      _activeGroup = undefined // string value expected
-      _groupTags = undefined
+      #groups = {}
+      #activeGroup = undefined // string value expected
+      #groupTags = undefined
 
       constructor(groupTagsBar) {
-        this._groupTags = groupTagsBar
+        this.#groupTags = groupTagsBar
         groupTagsBar.onTagClick(groupName => {
-          this._switchToGroup(groupName)
+          this.#switchToGroup(groupName)
         })
       }
 
-      addWildTask(task) {
+      addTaskToManager(task) {
         const parseDesc = parse_desc(task.getDesc())
-        if (false === this._groups.hasOwnProperty(parseDesc.group)) {
-          this._groupTags.addTag(parseDesc.group)
+        if (false === this.#groups.hasOwnProperty(parseDesc.group)) {
+          this.#groupTags.addTag(parseDesc.group)
           const group = new TaskGroup()
-          this._groups[parseDesc.group] = group
+          this.#groups[parseDesc.group] = group
           container.addView(group)
         }
-        this._groups[parseDesc.group].addTaskWildly(task
+        this.#groups[parseDesc.group].addTaskToGroup(task
           .setParsedDesc(parseDesc))
         return this
       }
@@ -1170,52 +1167,53 @@
         }
 
         let adjustedDesc = strEntered
-        const isDefault = defaultGroup === this._activeGroup
+        const isDefault = defaultGroup === this.#activeGroup
         if (false === isDefault && defaultGroup === parsed.group) {
-          adjustedDesc = `${this._activeGroup}${colonEN}${adjustedDesc}`
-          parsed.group = this._activeGroup
+          adjustedDesc = `${this.#activeGroup}${colonEN}${adjustedDesc}`
+          parsed.group = this.#activeGroup
         }
-        this.addWildTask(new Task()
+        this.addTaskToManager(new Task()
           .setData(create_task_data({desc: adjustedDesc})))
-        const isSameGroup = parsed.group === this._activeGroup
+        const isSameGroup = parsed.group === this.#activeGroup
         if (false === isSameGroup) {
-          this._switchToGroup(parsed.group)
+          this.#switchToGroup(parsed.group)
         }
         return this
       }
 
       showCurrentGroup() {
-        if (false === this._groups.hasOwnProperty(defaultGroup)) {
-          this._groups[defaultGroup] = new TaskGroup()
-          container.addView(this._groups[defaultGroup])
+        if (false === this.#groups.hasOwnProperty(defaultGroup)) {
+          this.#groups[defaultGroup] = new TaskGroup()
+          container.addView(this.#groups[defaultGroup])
         }
-        if (undefined === this._activeGroup) {
-          this._activeGroup = load_group_name()
-          if (false === this._groups.hasOwnProperty(this._activeGroup)) {
-            this._activeGroup = defaultGroup
+        if (undefined === this.#activeGroup) {
+          this.#activeGroup = load_group_name()
+          if (false === this.#groups.hasOwnProperty(this.#activeGroup)) {
+            this.#activeGroup = defaultGroup
           }
         }
-        const groupCount = Object.keys(this._groups).length
-        groupCount > 0 && this._groups[this._activeGroup].show()
-        this._groupTags.highlightTag(this._activeGroup)
+        const groupCount = Object.keys(this.#groups).length
+        groupCount > 0 && this.#groups[this.#activeGroup].showGroup()
+        this.#groupTags.highlightTag(this.#activeGroup)
       }
 
       deactivateManager() {
-        this._groups[this._activeGroup].deactivateGroup()
+        this.#groups[this.#activeGroup].deactivateGroup()
       }
 
-      _switchToGroup(groupName) {
-        if (groupName === this._activeGroup) {
+      #switchToGroup = function(groupName) {
+        const self = this
+        if (groupName === self.#activeGroup) {
           return
         }
-        if (this._activeGroup) {
-          this._groups[this._activeGroup].hide()
+        if (self.#activeGroup) {
+          self.#groups[self.#activeGroup].hideGroup()
         }
-        if (this._groups.hasOwnProperty(groupName)) {
-          this._activeGroup = groupName
+        if (self.#groups.hasOwnProperty(groupName)) {
+          self.#activeGroup = groupName
           save_group_name(groupName)
-          this._groups[groupName].show()
-          this._groupTags.highlightTag(groupName)
+          self.#groups[groupName].showGroup()
+          self.#groupTags.highlightTag(groupName)
         }
       }
     }
@@ -1342,7 +1340,7 @@
       // Init the tasks.
       for (const task of tasks) {
         const taskData = create_task_data(task)
-        groupManager.addWildTask(new Task()
+        groupManager.addTaskToManager(new Task()
           .setData(taskData))
       }
       groupManager.showCurrentGroup()
