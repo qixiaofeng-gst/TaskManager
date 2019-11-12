@@ -28,6 +28,7 @@
         get: (target, p, _receiver) => target[p],
         set: () => false,
       }),
+      emptyString = '',
       Colors = new Proxy({
         KEY: 'style.backgroundColor|color',
         text: '#555555',
@@ -290,7 +291,7 @@
     }
 
     class SectionTitle extends View {
-      #onRemoveClick = () => undefined
+      #onClickRemoveButton = () => undefined
 
       #text = new Text()
       #removeButton = new IconButton()
@@ -312,7 +313,7 @@
             .setBGImage('css/destroy.png')
             .setDisplay(Displays.none))
 
-        this.#removeButton.onclick = () => this.#onRemoveClick()
+        this.#removeButton.onclick = () => this.#onClickRemoveButton()
       }
 
       setText(strValue) {
@@ -320,8 +321,8 @@
         return this
       }
 
-      onRemoveClick(action) {
-        this.#onRemoveClick = action
+      onClickRemoveButton(cb_onClickRemoveButton) {
+        this.#onClickRemoveButton = cb_onClickRemoveButton
         return this
       }
 
@@ -369,7 +370,7 @@
         }
         this.ondragend = () => this.#onDragEnd()
         this.ondblclick = e => this.#onDoubleClick(e.target)
-        this.#title.onRemoveClick(() => this.clearTasks())
+        this.#title.onClickRemoveButton(() => this.clearTasks())
       }
 
       clearTasks() {
@@ -389,16 +390,16 @@
         return this
       }
 
-      activateSection() {
-        this.#tasks.length > 0 && this.#tasks[0].activateTask()
+      activateSection(cb_complete) {
+        this.#tasks.length > 0 && this.#tasks[0].activateTask(cb_complete)
       }
 
-      deactivateSection() {
-        this.#tasks.length > 0 && this.#tasks[0].deactivateTask()
+      deactivateSection(cb_complete) {
+        this.#tasks.length > 0 && this.#tasks[0].deactivateTask(cb_complete)
       }
 
-      afterEmptyTasks(action) {
-        this.#afterEmptyTasks = action
+      afterEmptyTasks(cb_afterEmptyTasks) {
+        this.#afterEmptyTasks = cb_afterEmptyTasks
         return this
       }
 
@@ -463,33 +464,33 @@
         return this
       }
 
-      onDragStart(action) {
-        this.#onDragStart = action
+      onDragStart(cb_onDragStart) {
+        this.#onDragStart = cb_onDragStart
         return this
       }
 
-      onDragEnd(action) {
-        this.#onDragEnd = action
+      onDragEnd(cb_onDragEnd) {
+        this.#onDragEnd = cb_onDragEnd
         return this
       }
 
-      onDrop(action) {
-        this.#onDrop = action
+      onDrop(cb_onDrop) {
+        this.#onDrop = cb_onDrop
         return this
       }
 
-      onDoubleClick(action) {
-        this.#onDoubleClick = action
+      onDoubleClick(cb_onDoubleClick) {
+        this.#onDoubleClick = cb_onDoubleClick
         return this
       }
 
-      beforeAddTask(action) {
-        this.#beforeAddTask = action
+      beforeAddTask(cb_beforeAddTask) {
+        this.#beforeAddTask = cb_beforeAddTask
         return this
       }
 
-      onTasksUpdate(action) {
-        this.#onTasksUpdate = action
+      onTasksUpdate(cb_onTasksUpdate) {
+        this.#onTasksUpdate = cb_onTasksUpdate
         return this
       }
 
@@ -538,8 +539,8 @@
         super()
       }
 
-      setContentGenerator(action) {
-        this.#generateContent = action
+      setContentGenerator(cb_generateContent) {
+        this.#generateContent = cb_generateContent
         return this
       }
 
@@ -583,8 +584,8 @@
         return super.setCount(value)
       }
 
-      onClick(action) {
-        this.#onClick = action
+      onClick(cb_onClick) {
+        this.#onClick = cb_onClick
         return this
       }
     }
@@ -642,13 +643,13 @@
         this.#completeCounter.setCount(numValue)
       }
 
-      onClearPendingTasks(action) {
-        this.#onClearPendingTasks = action
+      onClearPendingTasks(cb_onClearPendingTasks) {
+        this.#onClearPendingTasks = cb_onClearPendingTasks
         return this
       }
 
-      onClearCompleteTasks(action) {
-        this.#onClearCompleteTasks = action
+      onClearCompleteTasks(cb_onClearCompleteTasks) {
+        this.#onClearCompleteTasks = cb_onClearCompleteTasks
         return this
       }
     }
@@ -693,7 +694,7 @@
         this.#view.onkeypress = e => {
           const entered = preventFirstCNColon(this.#view.value)
           if (e.key === KeyNames.enter && entered) {
-            this.#view.value = ''
+            this.#view.value = emptyString
             if (this.#view.checkAttribute(InputTypes.KEY, InputTypes.text)) {
               if (entered.startsWith(trait_login)) {
                 credentials.email = entered.substr(trait_login.length, entered.length)
@@ -738,8 +739,8 @@
         this.#view.focus(options)
       }
 
-      onTextEntered(action) {
-        this.#onTextEntered = action
+      onTextEntered(cb_onTextEntered) {
+        this.#onTextEntered = cb_onTextEntered
         return this
       }
     }
@@ -766,12 +767,22 @@
         this
           .setDisplay(Displays.grid)
           .setAlignItems(Aligns.center)
-          .setGridColumn('1rem 1fr 10rem', '.5rem')
+          .setGridColumn('1rem 1fr min-content', '.5rem')
           .setBorderBottom(`1px solid ${Colors.border_lighter}`)
           .setPadding('.25rem 0')
           .addView(this.#prefixDot)
           .addView(this.#text)
           .addView(this.#timeCost)
+
+        this.oncontextmenu = e => {
+          if (e.target === this.#timeCost) {
+            e.preventDefault()
+            this.#data.timeCost = 0
+            this.#data.startTime = this.#data.is_activated ? Date.now() : 0
+            this.updateTimeCost()
+            this.saveData()
+          }
+        }
       }
 
       setParsedDesc(parsedDesc) {
@@ -785,8 +796,8 @@
         return this
       }
 
-      onPopFromOldParent(action) {
-        this.#onPopFromOldParent = action
+      onPopFromOldParent(cb_onPopFromOldParent) {
+        this.#onPopFromOldParent = cb_onPopFromOldParent
         return this
       }
 
@@ -795,8 +806,8 @@
         return this
       }
 
-      saveData(action = () => undefined) {
-        save_task_data(this.#data).then(action)
+      saveData(cb_complete = () => undefined) {
+        save_task_data(this.#data).then(cb_complete)
         return this
       }
 
@@ -820,7 +831,7 @@
         return this
       }
 
-      activateTask() {
+      activateTask(cb_complete) {
         activatedTask && activatedTask.deactivateTask()
         activatedTask = this
         this.setDotAnimation(true)
@@ -829,10 +840,11 @@
         }
         this.#data.startTime = Date.now()
         this.#data.is_activated = true
-        return this.saveData()
+        cb_complete && cb_complete(this)
+        return this
       }
 
-      deactivateTask() {
+      deactivateTask(cb_complete) {
         this.setDotAnimation(false)
         if (false === this.#data.is_activated) {
           return this
@@ -840,7 +852,8 @@
         this.#data.timeCost += (Date.now() - this.#data.startTime)
         this.#data.startTime = 0
         this.#data.is_activated = false
-        return this.saveData()
+        cb_complete && cb_complete(this)
+        return this
       }
 
       updateTimeCost() {
@@ -848,6 +861,8 @@
         const timeCost = this.#data.timeCost + increment
         if (timeCost > 0) {
           this.#timeCost.setContent(time_str(timeCost))
+        } else {
+          this.#timeCost.setContent(emptyString)
         }
         return this
       }
@@ -1031,7 +1046,7 @@
           return this
         }
         this.#isVisible = true
-        this.#wipSection.activateSection()
+        this.#wipSection.activateSection(task => task.saveData())
         this.updateFooter()
         return this.setDisplay(Displays.block)
       }
@@ -1041,7 +1056,7 @@
           return this
         }
         this.#isVisible = false
-        this.#wipSection.deactivateSection()
+        this.#wipSection.deactivateSection(task => task.saveData())
         return this.setDisplay(Displays.none)
       }
 
@@ -1113,8 +1128,8 @@
         return this.addView(tag)
       }
 
-      onTagClick(action) {
-        this.#onTagClick = action
+      onTagClick(cb_onTagClick) {
+        this.#onTagClick = cb_onTagClick
         return this
       }
     }
@@ -1201,7 +1216,7 @@
         this.#groups[this.#activeGroup].deactivateGroup()
       }
 
-      #switchToGroup = function(groupName) {
+      #switchToGroup = function (groupName) {
         const self = this
         if (groupName === self.#activeGroup) {
           return
@@ -1249,7 +1264,7 @@
         .addView(input)
         .addView(output)
         .addView(groupTagsBar),
-      log = msg => output.setContent(msg || ''),
+      log = msg => output.setContent(msg || emptyString),
       on_draw = () => requestAnimationFrame(() => {
         activatedTask && activatedTask.updateTimeCost()
         if (false === input.isFocused && false === isMouseDown) {
