@@ -494,7 +494,7 @@
         return this
       }
 
-      addTask(task) {
+      addTaskToSection(task) {
         if (0 === this.#tasks.length) {
           this.cutView(this.#placeholder)
           task.setState()
@@ -768,7 +768,7 @@
           .setDisplay(Displays.grid)
           .setAlignItems(Aligns.center)
           .setGridColumn('1rem 1fr min-content', '.5rem')
-          .setBorderBottom(`1px solid ${Colors.border_lighter}`)
+          .setBorderTop(`1px solid ${Colors.border_lighter}`)
           .setPadding('.25rem 0')
           .addView(this.#prefixDot)
           .addView(this.#text)
@@ -964,7 +964,7 @@
         return (targetElement => {
           const targetTask = section.getTaskByView(targetElement)
           if (targetTask) {
-            this.#wipSection.addTask(targetTask
+            this.#wipSection.addTaskToSection(targetTask
               .setSN(this.#wipSection.taskCount)
               .setState(task_state.in_progress)
               .saveData())
@@ -987,7 +987,7 @@
           .onDoubleClick(targetElement => {
             const task = this.#wipSection.getTaskByView(targetElement)
             if (task.isActivated) {
-              this.#completeSection.addTask(task
+              this.#completeSection.addTaskToSection(task
                 .deactivateTask()
                 .setSN(this.#completeSection.taskCount)
                 .setState(task_state.completed)
@@ -1006,7 +1006,7 @@
           .onTasksUpdate(() => this.updateFooter())
           .onDrop(_ => {
             input.focus()
-            draggingTask && this.#pendingSection.addTask(draggingTask
+            draggingTask && this.#pendingSection.addTaskToSection(draggingTask
               .setSN(this.#pendingSection.taskCount)
               .setState(task_state.pending)
               .saveData())
@@ -1018,7 +1018,7 @@
             .enableDrag(false))
           .onTasksUpdate(() => this.updateFooter())
           .onDrop(_ => {
-            draggingTask && this.#completeSection.addTask(draggingTask
+            draggingTask && this.#completeSection.addTaskToSection(draggingTask
               .setSN(this.#completeSection.taskCount)
               .setState(task_state.completed)
               .saveData())
@@ -1073,7 +1073,7 @@
             targetSection = this.#pendingSection
         }
         const taskCount = targetSection.taskCount
-        targetSection.addTask(task)
+        targetSection.addTaskToSection(task)
         if (taskCount === task.getSN()) {
           return this
         }
@@ -1187,10 +1187,11 @@
           adjustedDesc = `${this.#activeGroup}${colonEN}${adjustedDesc}`
           parsed.group = this.#activeGroup
         }
-        this.addTaskToManager(new Task()
-          .setData(create_task_data({desc: adjustedDesc})))
-        const isSameGroup = parsed.group === this.#activeGroup
-        if (false === isSameGroup) {
+        const task = new Task().setData(create_task_data({desc: adjustedDesc}))
+        this.addTaskToManager(task)
+        if (parsed.group === this.#activeGroup) {
+          (task_state.in_progress === task.state && task.getSN() === 0) && task.saveData()
+        } else {
           this.#switchToGroup(parsed.group)
         }
         return this
