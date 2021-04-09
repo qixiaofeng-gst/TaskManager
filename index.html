@@ -2,6 +2,7 @@
 <html lang="cn">
 <head>
   <script>window.addEventListener('load', () => {
+    // TODO Make this tool locally available.
     let
       isMouseDown = false,
       draggingTask = undefined,
@@ -1061,7 +1062,7 @@
       }
 
       addTaskToGroup(task) {
-        let targetSection = undefined
+        let targetSection
         switch (task.state) {
           case task_state.completed:
             targetSection = this.#completeSection
