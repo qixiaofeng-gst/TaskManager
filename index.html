@@ -1274,33 +1274,21 @@
         }
         on_draw()
       }),
-      url_base = 'https://www.gsegment.com/tms',
-      msg_login = 'login please',
       post = (url, data) => new Promise((res, rej) => {
-        fetch(
-          `${url_base}/${url}?session=${localStorage.tm_session}`,
-          {
-            method: 'POST',
-            body: JSON.stringify(data),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          },
-        ).then(
-          resp => resp.json().then(
-            result => {
-              if (msg_login === result.msg) {
-                rej({msg: '请先登录 - 输入框输入 email:your_email'})
-              } else {
-                res(result)
-              }
-            },
-          ).catch(
-            err => rej({err, msg: 'receive json failed'}),
-          ),
-        ).catch(
-          err => rej({err, msg: 'fetch failed'}),
-        )
+        console.log(data, '<<<<<<< dunno what to do with it.')
+        switch (url) {
+          case 'list':
+            res({success: true, tasks: []})
+            break
+          case '':
+            res({test: 'dunno too'})
+            break
+          case 'a':
+            res({test: 'dunno what is going to happen'})
+            break
+          default:
+            rej({msg: 'Unsupported URL.'})
+        }
       }),
       login = (email, password) => new Promise((res, rej) => {
         post('user', {email, password}).then(
@@ -1314,7 +1302,7 @@
           },
         ).catch(err => rej(err))
       }),
-      list_task = () => post('task/list'),
+      list_task = () => post('list'),
       save_task_data = task => post('task', task)
         .then(({success, _id}) => {
           if (success) {
