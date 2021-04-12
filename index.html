@@ -1283,7 +1283,7 @@
             tasks.push(JSON.parse(localStorage.getItem(item_name)))
           }
         }
-        tasks.sort((a, b) => a._id - b._id)
+        tasks.sort((a, b) => b._id - a._id)
         return tasks
       },
       find_new_identifier = () => {
