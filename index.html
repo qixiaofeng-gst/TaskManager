@@ -1279,9 +1279,14 @@
         const tasks = []
         for (let i = 0; i < localStorage.length; ++i) {
           const item_name = localStorage.key(i)
-          if (item_name.startsWith(task_prefix)) {
-            tasks.push(JSON.parse(localStorage.getItem(item_name)))
+          if (false === item_name.startsWith(task_prefix)) {
+            continue
           }
+          const task = JSON.parse(localStorage.getItem(item_name))
+          if (task.is_cleared) {
+            continue
+          }
+          tasks.push(task)
         }
         tasks.sort((a, b) => b._id - a._id)
         return tasks
