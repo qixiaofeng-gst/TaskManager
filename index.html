@@ -1274,17 +1274,40 @@
         }
         on_draw()
       }),
+      task_prefix = 'task_',
+      list_local_tasks = () => {
+        const tasks = []
+        for (let i = 0; i < localStorage.length; ++i) {
+          const item_name = localStorage.key(i)
+          if (item_name.startsWith(task_prefix)) {
+            tasks.push(JSON.parse(localStorage.getItem(item_name)))
+          }
+        }
+        tasks.sort((a, b) => a._id - b._id)
+        return tasks
+      },
+      find_new_identifier = () => {
+        const tasks = list_local_tasks()
+        if (tasks.length === 0) {
+          return 1
+        } else {
+          return tasks[0]._id + 1
+        }
+      },
       post = (url, data) => new Promise((res, rej) => {
-        console.log(data, '<<<<<<< dunno what to do with it.')
         switch (url) {
           case 'list':
-            res({success: true, tasks: []})
+            res({success: true, tasks: list_local_tasks()})
             break
-          case '':
-            res({test: 'dunno too'})
+          case 'task':
+            if(undefined === data._id) {
+              data._id = find_new_identifier()
+            }
+            localStorage.setItem(task_prefix + data._id, JSON.stringify(data))
+            res({success: true, _id: data._id})
             break
-          case 'a':
-            res({test: 'dunno what is going to happen'})
+          case 'user':
+            res({msg: 'There is no need to login for locally use.'})
             break
           default:
             rej({msg: 'Unsupported URL.'})
